@@ -1,16 +1,23 @@
 import { resolveAiProvider } from "@/lib/ai-config";
 import { DAILY_GENERATION_LIMIT } from "@/lib/config";
-import { GENERATION_SYSTEM_PROMPT, GENERATION_USER_PREFIX } from "@/lib/prompts";
+import { randomProjectId } from "@/lib/backend/types";
+import { sanitizePath } from "@/lib/file-bundle";
+import { GENERATION_SYSTEM_PROMPT, USER_PREFIX } from "@/lib/prompts";
 import { adminAuth, isAdminConfigured } from "@/lib/server/admin";
 import { chargeGeneration, readRemaining } from "@/lib/server/quota";
+import { researchBrief } from "@/lib/server/research";
+import { saveBundle } from "@/lib/server/storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 const RATE_WINDOW_MS = 60_000;
 const RATE_MAX_REQUESTS = 10;
-const MAX_PROMPT_LENGTH = 2000;
+const MAX_PROMPT_LENGTH = 4000;
+const MAX_TOTAL_FILE_CHARS = 120_000;
+const MAX_FILES = 12;
+const MAX_HISTORY = 8;
 /** Below this the model produced nothing usable, so nothing is charged. */
 const MIN_CHARGEABLE_CHARS = 20;
 
@@ -49,17 +56,49 @@ function textStreamHeaders(generator: string, model: string): HeadersInit {
   };
 }
 
+type IncomingFile = { path: string; content: string };
+type IncomingTurn = { role: "user" | "assistant"; content: string };
+
+function readFiles(value: unknown): IncomingFile[] {
+  if (!Array.isArray(value)) return [];
+  const files: IncomingFile[] = [];
+  let total = 0;
+  for (const entry of value.slice(0, MAX_FILES)) {
+    const path = typeof (entry as IncomingFile)?.path === "string" ? sanitizePath((entry as IncomingFile).path) : "";
+    const content = typeof (entry as IncomingFile)?.content === "string" ? (entry as IncomingFile).content : "";
+    if (!path || !content) continue;
+    if (total + content.length > MAX_TOTAL_FILE_CHARS) break;
+    total += content.length;
+    files.push({ path, content });
+  }
+  return files;
+}
+
+function readHistory(value: unknown): IncomingTurn[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((turn): turn is IncomingTurn => {
+      const candidate = turn as IncomingTurn | null;
+      return Boolean(
+        candidate &&
+          (candidate.role === "user" || candidate.role === "assistant") &&
+          typeof candidate.content === "string" &&
+          candidate.content.trim(),
+      );
+    })
+    .slice(-MAX_HISTORY)
+    .map((turn) => ({ role: turn.role, content: turn.content.slice(0, 1500) }));
+}
+
 /**
- * Turns an OpenAI-compatible SSE stream into a plain text stream of HTML
- * tokens, so the browser can simply append chunks to the preview.
- *
- * `onSuccess` runs once the upstream stream ends normally with real output —
- * before the stream closes, so a client that re-reads its quota afterwards
- * always sees the settled number.
+ * Turns an OpenAI-compatible SSE stream into a plain text stream of the file
+ * bundle. `onSuccess` runs once the upstream stream ends normally with real
+ * output — before the stream closes, so the settled quota and stored files are
+ * in place by the time the browser sees the end of the response.
  */
 function sseToTextStream(
   source: ReadableStream<Uint8Array>,
-  onSuccess?: (characters: number) => Promise<void>,
+  onSuccess?: (text: string) => Promise<void>,
 ): ReadableStream<Uint8Array> {
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
@@ -68,17 +107,17 @@ function sseToTextStream(
     async start(controller) {
       const reader = source.getReader();
       let buffer = "";
-      let produced = 0;
+      let produced = "";
       let settled = false;
 
       const settle = async () => {
         if (settled) return;
         settled = true;
-        if (!onSuccess || produced < MIN_CHARGEABLE_CHARS) return;
+        if (!onSuccess || produced.length < MIN_CHARGEABLE_CHARS) return;
         try {
           await onSuccess(produced);
         } catch (error) {
-          console.error("[openmi] could not charge the generation", error);
+          console.error("[openmi] could not settle the generation", error);
         }
       };
 
@@ -98,7 +137,7 @@ function sseToTextStream(
             const payload = line.slice(5).trim();
             if (!payload) continue;
             if (payload === "[DONE]") {
-              produced += out.length;
+              produced += out;
               if (out) controller.enqueue(encoder.encode(out));
               await settle();
               controller.close();
@@ -115,7 +154,7 @@ function sseToTextStream(
             }
           }
           if (out) {
-            produced += out.length;
+            produced += out;
             controller.enqueue(encoder.encode(out));
           }
         }
@@ -123,7 +162,7 @@ function sseToTextStream(
         await settle();
         controller.close();
       } catch (error) {
-        // An interrupted generation is not a successful one: no charge.
+        // An interrupted generation is not a successful one: no charge, no save.
         controller.error(error);
       } finally {
         reader.releaseLock();
@@ -143,15 +182,28 @@ export async function POST(request: Request) {
     return jsonError("Invalid JSON body.", 400);
   }
 
-  const rawPrompt = (payload as { prompt?: unknown } | null)?.prompt;
-  const prompt = typeof rawPrompt === "string" ? rawPrompt.trim() : "";
+  const body = (payload ?? {}) as {
+    prompt?: unknown;
+    chatId?: unknown;
+    files?: unknown;
+    history?: unknown;
+  };
 
+  const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
   if (prompt.length < 3) {
     return jsonError("Describe what you want to build (at least 3 characters).", 400);
   }
   if (prompt.length > MAX_PROMPT_LENGTH) {
-    return jsonError(`Keep prompts under ${MAX_PROMPT_LENGTH} characters.`, 400);
+    return jsonError(`Keep messages under ${MAX_PROMPT_LENGTH} characters.`, 400);
   }
+
+  const chatId =
+    typeof body.chatId === "string" && /^[a-z0-9]{6,40}$/.test(body.chatId)
+      ? body.chatId
+      : randomProjectId(20);
+
+  const files = readFiles(body.files);
+  const history = readHistory(body.history);
 
   const forwarded = request.headers.get("x-forwarded-for");
   const clientKey = forwarded?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "local";
@@ -160,10 +212,6 @@ export async function POST(request: Request) {
   }
 
   // --- identity + quota ----------------------------------------------------
-  // With admin credentials present the quota is authoritative: a valid ID
-  // token is required, the counter is checked here, and it is only decremented
-  // after the model actually delivers output. Without admin credentials the
-  // app is in demo mode and nothing is charged.
   const quotaConfigured = isAdminConfigured();
   const authHeader = request.headers.get("authorization") ?? "";
   let actor: { uid: string; email: string | null } | null = null;
@@ -179,13 +227,13 @@ export async function POST(request: Request) {
       const decoded = await adminAuth().verifyIdToken(authHeader.slice(7).trim());
       actor = { uid: decoded.uid, email: decoded.email ?? null };
     } catch {
-      return jsonError("Your session has expired. Sign in again to keep generating.", 401);
+      return jsonError("Your session has expired. Sign in again to keep building.", 401);
     }
   }
 
   if (quotaConfigured) {
     if (!actor) {
-      return jsonError("Sign in to generate — credits are charged to your account.", 401);
+      return jsonError("Sign in to build — credits are charged to your account.", 401);
     }
     const remaining = await readRemaining(actor.uid);
     if (remaining <= 0) {
@@ -197,17 +245,20 @@ export async function POST(request: Request) {
   }
 
   const charge = actor
-    ? async (characters: number) => {
+    ? async (text: string) => {
+        const { parseFileBundle } = await import("@/lib/file-bundle");
+        const bundle = parseFileBundle(text);
+        if (bundle.files.length) await saveBundle(chatId, bundle);
         const remaining = await chargeGeneration(actor!.uid, actor!.email);
         console.info(
-          `[openmi] charged ${actor!.uid} ${characters} chars, ${remaining} generation(s) left`,
+          `[openmi] charged ${actor!.uid} for ${bundle.files.length} file(s), ${remaining} generation(s) left`,
         );
       }
     : undefined;
 
   const provider = resolveAiProvider();
 
-  // No key configured: stream a canned design so the editor stays usable.
+  // No key configured: stream a canned multi-file project so the editor stays usable.
   if (!provider.apiKey) {
     const { demoGenerationStream } = await import("@/lib/demo-generation");
     return new Response(demoGenerationStream(prompt), {
@@ -215,6 +266,32 @@ export async function POST(request: Request) {
     });
   }
 
+  // --- live research -------------------------------------------------------
+  const research = await researchBrief(prompt);
+
+  const sections = [prompt];
+
+  if (history.length) {
+    sections.push(
+      `CONVERSATION SO FAR:\n${history
+        .map((turn) => `${turn.role === "user" ? "User" : "Openmi"}: ${turn.content}`)
+        .join("\n")}`,
+    );
+  }
+
+  if (files.length) {
+    sections.push(
+      `CURRENT FILES — the project so far. Keep what works and return complete updated files:\n${files
+        .map((file) => `<<<FILE path="${file.path}">>>\n${file.content}\n<<<END FILE>>>`)
+        .join("\n")}`,
+    );
+  } else {
+    sections.push("CURRENT FILES: none — this is a new project. Start with index.html.");
+  }
+
+  if (research.prompt) sections.push(research.prompt);
+
+  const userMessage = `${USER_PREFIX}${sections.join("\n\n")}`;
   const baseUrl = provider.baseUrl.replace(/\/+$/, "");
 
   let upstream: Response;
@@ -228,22 +305,22 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         model: provider.model,
         stream: true,
-        temperature: 0.7,
-        max_tokens: 4096,
+        temperature: 0.8,
+        max_tokens: 8000,
         messages: [
           { role: "system", content: GENERATION_SYSTEM_PROMPT },
-          { role: "user", content: `${GENERATION_USER_PREFIX}${prompt}` },
+          { role: "user", content: userMessage },
         ],
         ...provider.extraBody,
       }),
-      signal: AbortSignal.timeout(55_000),
+      signal: AbortSignal.timeout(110_000),
     });
   } catch (error) {
     console.error("[openmi] provider unreachable", error);
     return jsonError(
       `Could not reach ${provider.status.label}. Check the network and API settings.`,
       502,
-      { "X-Openmi-Generator": provider.status.provider },
+      { "X-Openmi-Generator": provider.status.provider, "X-Openmi-Chat": chatId },
     );
   }
 
@@ -258,10 +335,17 @@ export async function POST(request: Request) {
           : upstream.status === 429
             ? `${provider.status.label} is rate limiting requests. Try again in a moment.`
             : `${provider.status.label} returned an error (${upstream.status}).`;
-    return jsonError(hint, 502, { "X-Openmi-Generator": provider.status.provider });
+    return jsonError(hint, 502, {
+      "X-Openmi-Generator": provider.status.provider,
+      "X-Openmi-Chat": chatId,
+    });
   }
 
   return new Response(sseToTextStream(upstream.body, charge), {
-    headers: textStreamHeaders(provider.status.provider, provider.model),
+    headers: {
+      ...textStreamHeaders(provider.status.provider, provider.model),
+      "X-Openmi-Chat": chatId,
+      "X-Openmi-Research": research.enabled ? (research.sources.length ? "grounded" : "empty") : "off",
+    },
   });
 }

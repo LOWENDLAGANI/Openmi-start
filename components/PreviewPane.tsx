@@ -2,19 +2,27 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { buildPreviewDocument, formatBytes } from "@/lib/preview-html";
+import { formatBytesNumber } from "@/lib/preview-html";
 
 import { LayersIcon, MonitorIcon, RefreshIcon, SmartphoneIcon } from "./icons";
 
 type Viewport = "desktop" | "mobile";
 
 export function PreviewPane({
-  code,
+  html,
+  src,
   streaming,
+  files,
+  size,
   className = "",
 }: {
-  code: string;
+  /** Inlined single-document preview, rebuilt on every stream flush. */
+  html: string | null;
+  /** Storage-backed multi-page preview, used once a build is complete. */
+  src: string | null;
   streaming: boolean;
+  files: string[];
+  size: number;
   className?: string;
 }) {
   const [viewport, setViewport] = useState<Viewport>("desktop");
@@ -23,17 +31,16 @@ export function PreviewPane({
   const previousUrl = useRef<string | null>(null);
 
   /**
-   * Every code change becomes a fresh Blob URL, which is what the iframe loads.
-   * Old URLs are revoked a little later so an in-flight navigation can finish.
+   * Every preview update becomes a fresh Blob URL. Old URLs are revoked later
+   * so an in-flight navigation can finish.
    */
   useEffect(() => {
-    if (!code.trim()) {
+    if (!html) {
       setBlobUrl(null);
       return;
     }
 
-    const document = buildPreviewDocument(code);
-    const nextUrl = URL.createObjectURL(new Blob([document], { type: "text/html" }));
+    const nextUrl = URL.createObjectURL(new Blob([html], { type: "text/html" }));
     const stale = previousUrl.current;
 
     previousUrl.current = nextUrl;
@@ -44,7 +51,7 @@ export function PreviewPane({
       return () => window.clearTimeout(timer);
     }
     return undefined;
-  }, [code]);
+  }, [html]);
 
   useEffect(() => {
     return () => {
@@ -52,12 +59,16 @@ export function PreviewPane({
     };
   }, []);
 
-  const hasCode = Boolean(code.trim());
-  const iframe = hasCode ? (
+  // While streaming, the inline document is the live view. Afterwards the
+  // storage URL takes over so relative links between pages resolve.
+  const target = src && !streaming ? src : blobUrl;
+  const hasOutput = Boolean(target);
+
+  const iframe = hasOutput ? (
     <iframe
-      key={`${blobUrl ?? "empty"}-${reloadToken}`}
+      key={`${target}-${reloadToken}`}
       title="Openmi live preview"
-      src={blobUrl ?? undefined}
+      src={target ?? undefined}
       sandbox="allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-downloads"
       className="h-full w-full border-0 bg-white"
     />
@@ -72,14 +83,14 @@ export function PreviewPane({
         <div className="flex min-w-0 items-center gap-2">
           <span
             className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-              streaming ? "animate-pulse bg-brand" : hasCode ? "bg-ink" : "bg-line"
+              streaming ? "animate-pulse bg-brand" : hasOutput ? "bg-ink" : "bg-line"
             }`}
           />
           <span className="eyebrow truncate">
             {streaming
-              ? "Streaming"
-              : hasCode
-                ? `Live preview · ${formatBytes(code)}`
+              ? `Streaming · ${files.length || 1} file${files.length === 1 ? "" : "s"}`
+              : hasOutput
+                ? `Live preview · ${files.length} file${files.length === 1 ? "" : "s"} · ${formatBytesNumber(size)}`
                 : "Live preview · empty"}
           </span>
         </div>
@@ -115,7 +126,7 @@ export function PreviewPane({
           <button
             type="button"
             onClick={() => setReloadToken((token) => token + 1)}
-            disabled={!hasCode}
+            disabled={!hasOutput}
             title="Reload preview"
             className="rounded-full border border-line bg-paper p-1.5 text-inkSoft transition-colors hover:border-ink hover:text-ink disabled:opacity-40"
           >
@@ -127,7 +138,7 @@ export function PreviewPane({
       <div className="relative flex-1 overflow-hidden bg-paper">
         <div className="pointer-events-none absolute inset-0 bg-grid opacity-40" />
 
-        {hasCode ? (
+        {hasOutput ? (
           viewport === "desktop" ? (
             <div className="relative h-full p-3 sm:p-5">
               <BrowserFrame>{iframe}</BrowserFrame>
@@ -168,7 +179,7 @@ function BrowserFrame({ children }: { children: React.ReactNode }) {
           <span className="h-1.5 w-1.5 rounded-full bg-line" />
         </div>
         <span className="hidden font-mono text-[10px] uppercase tracking-[0.14em] text-inkSoft sm:block">
-          preview.openmi.local
+          your project
         </span>
         <span className="ml-auto h-1.5 w-1.5 rounded-full bg-brand" />
       </div>
@@ -188,13 +199,13 @@ function EmptyState() {
         Nothing rendered yet.
       </h2>
       <p className="mt-4 max-w-[36ch] text-sm leading-relaxed text-inkSoft">
-        Describe an interface on the left and hit Generate. Tokens stream straight into this frame —
-        no build step, no server render.
+        Describe a site in the chat. The model writes a small multi-file project — pages, CSS and
+        JS — and every file streams into this frame as it lands.
       </p>
       <div className="mt-7 flex w-fit items-center gap-2 border border-line bg-paperAlt px-3 py-2">
         <LayersIcon className="h-3.5 w-3.5 text-inkSoft" />
         <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-inkSoft">
-          Try “a pricing page for a video editor”
+          Try “a three-page site for a coffee roaster”
         </span>
       </div>
     </div>
@@ -206,7 +217,7 @@ function GeneratingState() {
     <div className="relative flex h-full flex-col justify-center px-6 py-10 sm:px-10">
       <span className="eyebrow flex items-center gap-2">
         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand" />
-        Streaming the first tokens
+        Writing the first file
       </span>
       <div className="mt-6 max-w-xl space-y-3">
         <div className="h-2.5 w-2/5 animate-pulse bg-line" />

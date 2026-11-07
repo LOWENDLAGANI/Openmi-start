@@ -5,7 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { getBackend } from "@/lib/backend";
 import type {
   BackendMode,
-  GenerationRecord,
+  ChatRecord,
   PublishResult,
   Quota,
   SessionUser,
@@ -15,7 +15,7 @@ type AuthContextValue = {
   ready: boolean;
   user: SessionUser | null;
   quota: Quota | null;
-  history: GenerationRecord[];
+  chats: ChatRecord[];
   mode: BackendMode;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
@@ -25,14 +25,14 @@ type AuthContextValue = {
   resendVerificationEmail: () => Promise<void>;
   /** Re-reads the account so a freshly verified email shows up. */
   refreshUser: () => Promise<SessionUser | null>;
-  /** Bearer token for /api/generate (null in demo mode). */
+  /** Bearer token for the server routes (null in demo mode). */
   getIdToken: () => Promise<string | null>;
   /** Demo only: spends one browser-local credit after a successful run. */
   consume: () => Promise<boolean>;
-  publish: (input: { code: string; generationId?: string | null }) => Promise<PublishResult>;
-  saveGeneration: (input: { prompt: string; code: string }) => Promise<GenerationRecord>;
+  publish: (input: { chatId: string; entry: string }) => Promise<PublishResult>;
+  saveChat: (chat: ChatRecord) => Promise<void>;
   refreshQuota: () => Promise<void>;
-  refreshHistory: () => Promise<void>;
+  refreshChats: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const backend = useMemo(() => getBackend(), []);
   const [user, setUser] = useState<SessionUser | null>(null);
   const [quota, setQuota] = useState<Quota | null>(null);
-  const [history, setHistory] = useState<GenerationRecord[]>([]);
+  const [chats, setChats] = useState<ChatRecord[]>([]);
   const [ready, setReady] = useState(false);
   const userRef = useRef<SessionUser | null>(null);
 
@@ -55,23 +55,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (!nextUser) {
         setQuota(null);
-        setHistory([]);
+        setChats([]);
         setReady(true);
         return;
       }
 
       try {
-        const [nextQuota, nextHistory] = await Promise.all([
+        const [nextQuota, nextChats] = await Promise.all([
           backend.loadQuota(nextUser),
-          backend.listGenerations(nextUser).catch((error: unknown) => {
-            // History is a convenience: a rules/index problem must not block the builder.
-            console.error("[openmi] failed to load build history", error);
-            return [] as GenerationRecord[];
+          backend.listChats(nextUser).catch((error: unknown) => {
+            // History is a convenience: a rules problem must not block the builder.
+            console.error("[openmi] failed to load chats", error);
+            return [] as ChatRecord[];
           }),
         ]);
         if (active) {
           setQuota(nextQuota);
-          setHistory(nextHistory);
+          setChats(nextChats);
         }
       } catch (error) {
         console.error("[openmi] failed to load quota", error);
@@ -96,13 +96,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [backend]);
 
-  const refreshHistory = useCallback(async () => {
+  const refreshChats = useCallback(async () => {
     const current = userRef.current;
     if (!current) return;
     try {
-      setHistory(await backend.listGenerations(current));
+      setChats(await backend.listChats(current));
     } catch (error) {
-      console.error("[openmi] failed to refresh build history", error);
+      console.error("[openmi] failed to refresh chats", error);
     }
   }, [backend]);
 
@@ -119,19 +119,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [backend]);
 
-  const saveGeneration = useCallback(
-    async (input: { prompt: string; code: string }) => {
+  const saveChat = useCallback(
+    async (chat: ChatRecord) => {
       const current = userRef.current;
       if (!current) throw new Error("Sign in before saving a build.");
-      const record = await backend.saveGeneration(current, input);
-      setHistory((previous) => [record, ...previous].slice(0, 20));
-      return record;
+      await backend.saveChat(current, chat);
+      setChats((previous) => {
+        const others = previous.filter((entry) => entry.id !== chat.id);
+        return [chat, ...others]
+          .sort((a, b) => b.updatedAt - a.updatedAt)
+          .slice(0, 20);
+      });
     },
     [backend],
   );
 
   const publish = useCallback(
-    async (input: { code: string; generationId?: string | null }) => {
+    async (input: { chatId: string; entry: string }) => {
       const current = userRef.current;
       if (!current) throw new Error("Sign in before publishing.");
       return backend.publish(current, input);
@@ -155,7 +159,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ready,
       user,
       quota,
-      history,
+      chats,
       mode: backend.mode,
       signInWithGoogle: () => backend.signInWithGoogle(),
       signInWithEmail: (email, password) => backend.signInWithEmail(email, password),
@@ -167,11 +171,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       getIdToken: () => backend.getIdToken(),
       consume,
       publish,
-      saveGeneration,
+      saveChat,
       refreshQuota,
-      refreshHistory,
+      refreshChats,
     }),
-    [ready, user, quota, history, backend, consume, publish, saveGeneration, refreshQuota, refreshHistory, refreshUser],
+    [ready, user, quota, chats, backend, consume, publish, saveChat, refreshQuota, refreshChats, refreshUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

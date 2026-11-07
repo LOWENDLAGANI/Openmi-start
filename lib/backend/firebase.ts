@@ -23,7 +23,6 @@ import {
   query,
   serverTimestamp,
   setDoc,
-  updateDoc,
   where,
   type Firestore,
 } from "firebase/firestore";
@@ -34,8 +33,9 @@ import {
   randomProjectId,
   todayKey,
   type Backend,
-  type GenerationRecord,
-  type PublishResult,
+  type ChatFile,
+  type ChatMessage,
+  type ChatRecord,
   type Quota,
   type SessionUser,
 } from "./types";
@@ -91,14 +91,38 @@ async function readQuota(uid: string): Promise<Quota> {
   return quotaFor(Math.max(0, Math.min(DAILY_GENERATION_LIMIT, stored)));
 }
 
-function toGenerationRecord(id: string, data: Record<string, unknown>): GenerationRecord {
-  const stamp = data.created_at as { toMillis?: () => number } | null | undefined;
-  const createdAt = typeof stamp?.toMillis === "function" ? stamp.toMillis() : Date.now();
+function toChatRecord(id: string, data: Record<string, unknown>): ChatRecord {
+  const rawFiles = Array.isArray(data.files) ? data.files : [];
+  const files: ChatFile[] = rawFiles
+    .map((entry) => {
+      const file = entry as { path?: unknown; content?: unknown };
+      return {
+        path: typeof file.path === "string" ? file.path : "",
+        content: typeof file.content === "string" ? file.content : "",
+      };
+    })
+    .filter((file) => file.path && file.content);
+
+  const rawMessages = Array.isArray(data.messages) ? data.messages : [];
+  const messages: ChatMessage[] = rawMessages
+    .map((entry) => {
+      const message = entry as { role?: unknown; content?: unknown; at?: unknown };
+      return {
+        role: message.role === "assistant" ? ("assistant" as const) : ("user" as const),
+        content: typeof message.content === "string" ? message.content : "",
+        at: typeof message.at === "number" ? message.at : Date.now(),
+      };
+    })
+    .filter((message) => message.content);
+
   return {
     id,
-    prompt: typeof data.prompt === "string" ? data.prompt : "",
-    code: typeof data.code === "string" ? data.code : "",
-    createdAt,
+    title: typeof data.title === "string" ? data.title : "Untitled build",
+    entry: typeof data.entry === "string" ? data.entry : "index.html",
+    files,
+    messages,
+    createdAt: typeof data.created_at === "number" ? data.created_at : Date.now(),
+    updatedAt: typeof data.updated_at === "number" ? data.updated_at : Date.now(),
     publishedId: typeof data.published_id === "string" ? data.published_id : null,
   };
 }
@@ -166,54 +190,45 @@ export const firebaseBackend: Backend = {
     );
   },
 
-  async listGenerations(user) {
+  async listChats(user) {
     // Single-field equality keeps this index-free; ordering happens client-side.
     const snapshot = await getDocs(
       query(
-        collection(db(), COLLECTIONS.generations),
+        collection(db(), COLLECTIONS.chats),
         where("user_id", "==", user.uid),
-        limitQuery(40),
+        limitQuery(30),
       ),
     );
     return snapshot.docs
-      .map((entry) => toGenerationRecord(entry.id, entry.data()))
-      .filter((record) => record.code.length > 0)
-      .sort((a, b) => b.createdAt - a.createdAt)
+      .map((entry) => toChatRecord(entry.id, entry.data()))
+      .sort((a, b) => b.updatedAt - a.updatedAt)
       .slice(0, 20);
   },
 
-  async saveGeneration(user, { prompt, code }) {
-    const id = randomProjectId(20);
-    await setDoc(doc(db(), COLLECTIONS.generations, id), {
-      id,
+  async saveChat(user, chat) {
+    await setDoc(doc(db(), COLLECTIONS.chats, chat.id), {
+      id: chat.id,
       user_id: user.uid,
-      prompt,
-      code,
-      published_id: null,
-      created_at: serverTimestamp(),
+      title: chat.title,
+      entry: chat.entry,
+      files: chat.files,
+      messages: chat.messages.slice(-30),
+      published_id: chat.publishedId,
+      created_at: chat.createdAt,
+      updated_at: chat.updatedAt,
+      updated_at_server: serverTimestamp(),
     });
-    return { id, prompt, code, createdAt: Date.now(), publishedId: null };
   },
 
-  async publish(user, { code, generationId }): Promise<PublishResult> {
+  async publish(user, { chatId, entry }) {
     const id = randomProjectId(6);
     await setDoc(doc(db(), COLLECTIONS.projects, id), {
       id,
       user_id: user.uid,
-      code,
+      chat_id: chatId,
+      entry,
       created_at: serverTimestamp(),
     });
-
-    if (generationId) {
-      await updateDoc(doc(db(), COLLECTIONS.generations, generationId), {
-        published_id: id,
-        published_at: serverTimestamp(),
-      }).catch((error: unknown) => {
-        // The public link exists either way; history just stays unlabelled.
-        console.error("[openmi] could not mark the generation as published", error);
-      });
-    }
-
     return { id };
   },
 };

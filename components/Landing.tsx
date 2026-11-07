@@ -25,12 +25,12 @@ const STEPS = [
   {
     number: "02",
     title: "Describe the screen",
-    body: "A sentence is enough. Openmi streams a single self-contained HTML page with Tailwind as it writes.",
+    body: "A sentence is enough. Openmi writes a small multi-page project — HTML, CSS and JS — into the live preview as it goes, then keeps editing it as you chat.",
   },
   {
     number: "03",
     title: "Publish it",
-    body: "Freeze the design into a six-character link anyone can open. No containers, no build chain, no billing.",
+    body: "Freeze the whole project into a six-character link anyone can open. No containers, no build chain, no billing.",
   },
 ];
 
@@ -151,8 +151,8 @@ export function Landing() {
             </h1>
 
             <p className="mt-6 max-w-[38ch] text-[15px] leading-relaxed text-inkSoft sm:text-base">
-              Openmi turns a sentence into a working interface. Prompt a landing page, a dashboard or a
-              pricing table, watch every token land in the preview, then publish a link in one click.
+              Openmi turns a sentence into a working multi-page site. Describe it, watch the files land
+              in the preview, keep chatting to refine it, then publish a link in one click.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -164,7 +164,7 @@ export function Landing() {
               </a>
             </div>
 
-            <p className="eyebrow mt-7">No card · Single-file HTML · Runs in the browser</p>
+            <p className="eyebrow mt-7">No card · Multi-page static sites · Runs in the browser</p>
           </div>
 
           {/* Sign-in, framed as the hero media object. */}

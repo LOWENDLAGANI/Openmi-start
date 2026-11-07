@@ -11,6 +11,8 @@ export type AiStatus = {
   provider: AiProviderId;
   label: string;
   model: string | null;
+  /** Live web research (Exa) is available for prompt grounding. */
+  research: boolean;
 };
 
 export type ResolvedProvider = {
@@ -40,7 +42,7 @@ export function resolveAiProvider(): ResolvedProvider {
     const thinking = process.env.DEEPSEEK_THINKING?.trim().toLowerCase() === "enabled";
 
     return {
-      status: { configured: true, provider: "deepseek", label: "DeepSeek", model },
+      status: { configured: true, provider: "deepseek", label: "DeepSeek", model, research: false },
       apiKey: deepseekKey,
       baseUrl,
       model,
@@ -54,7 +56,7 @@ export function resolveAiProvider(): ResolvedProvider {
     const model = process.env.OPENAI_MODEL?.trim() || OPENAI_MODEL;
 
     return {
-      status: { configured: true, provider: "openai", label: "OpenAI", model },
+      status: { configured: true, provider: "openai", label: "OpenAI", model, research: false },
       apiKey: openaiKey,
       baseUrl,
       model,
@@ -63,7 +65,7 @@ export function resolveAiProvider(): ResolvedProvider {
   }
 
   return {
-    status: { configured: false, provider: "none", label: "Demo generator", model: null },
+    status: { configured: false, provider: "none", label: "Demo generator", model: null, research: false },
     apiKey: null,
     baseUrl: "",
     model: "",
@@ -73,5 +75,6 @@ export function resolveAiProvider(): ResolvedProvider {
 
 /** Convenience helper for server components that only need the public summary. */
 export function aiStatus(): AiStatus {
-  return resolveAiProvider().status;
+  const status = resolveAiProvider().status;
+  return { ...status, research: Boolean(process.env.EXA_API_KEY?.trim()) };
 }

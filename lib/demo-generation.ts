@@ -1,6 +1,7 @@
 /**
- * Placeholder design used when OPENAI_API_KEY is missing, streamed token by
- * token so the live preview behaves exactly like a real generation.
+ * Placeholder project used when no AI key is configured. It streams the same
+ * multi-file format a real model would, so parsing, live preview and chat all
+ * behave exactly as they do in production.
  */
 
 function escapeHtml(value: string): string {
@@ -14,147 +15,182 @@ function escapeHtml(value: string): string {
 
 function headline(prompt: string): string {
   const trimmed = prompt.trim().replace(/\s+/g, " ");
-  if (!trimmed) return "Your interface, generated in seconds.";
-  return trimmed.length > 84 ? `${trimmed.slice(0, 84).trim()}…` : trimmed;
+  if (!trimmed) return "A placeholder page, streamed file by file.";
+  return trimmed.length > 80 ? `${trimmed.slice(0, 80).trim()}…` : trimmed;
 }
 
-export function buildDemoMarkup(prompt: string): string {
+export function buildDemoBundle(prompt: string): string {
   const title = escapeHtml(headline(prompt));
 
-  return `<div class="min-h-screen bg-[#F3F3EE] text-[#302B28]">
-  <header class="border-b border-[#CECEBF]">
-    <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-      <div class="flex items-center gap-3">
-        <span class="grid h-7 w-7 place-items-center rounded-[7px] bg-[#F43E01]">
-          <i data-lucide="box" class="h-4 w-4 text-[#302B28]"></i>
-        </span>
-        <span class="text-lg font-medium tracking-[-0.04em]">Northwind</span>
-        <span class="hidden h-4 w-px bg-[#CECEBF] sm:block"></span>
-        <span class="hidden font-mono text-[10px] uppercase tracking-[0.18em] text-[#69695D] sm:block">Platform</span>
-      </div>
-      <nav class="hidden items-center gap-6 font-mono text-[10px] uppercase tracking-[0.18em] text-[#69695D] md:flex">
-        <a href="#features" class="hover:text-[#302B28]">Features</a>
-        <a href="#numbers" class="hover:text-[#302B28]">Numbers</a>
-        <a href="#faq" class="hover:text-[#302B28]">FAQ</a>
-      </nav>
-      <button class="rounded-full bg-[#F43E01] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#C93300]">Get started</button>
-    </div>
+  const index = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Demo build — Openmi</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="bar">
+    <span class="mark">◍</span>
+    <span class="wordmark">Placeholder Studio</span>
+    <nav>
+      <a href="index.html">Work</a>
+      <a href="about.html">About</a>
+    </nav>
   </header>
 
   <main>
-    <section class="mx-auto max-w-6xl px-6 pb-16 pt-14 sm:pt-20">
-      <div class="grid items-start gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16">
-        <div>
-          <span class="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-[#69695D]">
-            <span class="h-1.5 w-1.5 rounded-full bg-[#F43E01]"></span>
-            Demo generation
-          </span>
-          <h1 class="mt-6 text-[clamp(2.4rem,6vw,4.4rem)] font-normal leading-[0.95] tracking-[-0.04em]">${title}</h1>
-          <p class="mt-6 max-w-[40ch] text-[15px] leading-relaxed text-[#69695D]">This placeholder was streamed by Openmi's demo generator. Add an <code class="rounded bg-[#E8E8DE] px-1.5 py-0.5 font-mono text-[12px] text-[#302B28]">OPENAI_API_KEY</code> to swap it for real, model-written interfaces.</p>
-          <div class="mt-8 flex flex-wrap items-center gap-3">
-            <button id="demo-cta" class="inline-flex items-center gap-2 rounded-full bg-[#F43E01] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#C93300]">
-              <i data-lucide="arrow-right" class="h-4 w-4"></i>
-              <span id="demo-cta-label">Try the button</span>
-            </button>
-            <a href="#features" class="inline-flex items-center gap-2 rounded-full border border-[#302B28] px-5 py-3 text-sm font-medium text-[#302B28] transition hover:bg-[#302B28] hover:text-[#F3F3EE]">See how it works</a>
-          </div>
-        </div>
+    <p class="kicker">Demo generation · no AI key</p>
+    <h1>${title}</h1>
+    <p class="lede">
+      This project was streamed by Openmi's placeholder generator. Two files arrived, the preview
+      resolved <code>styles.css</code> on its own, and the about page exists too.
+    </p>
+    <div class="actions">
+      <a class="primary" href="about.html">Open the second page</a>
+      <button class="ghost" id="counter" type="button">Clicked 0 times</button>
+    </div>
 
-        <div class="border border-[#CECEBF] bg-[#FAFAF8] p-6">
-          <div class="flex items-center justify-between">
-            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-[#69695D]">Live throughput</p>
-            <span class="h-1.5 w-1.5 rounded-full bg-[#F43E01]"></span>
-          </div>
-          <p class="mt-4 text-5xl font-normal leading-none tracking-[-0.04em]">1,284</p>
-          <p class="mt-2 text-sm text-[#69695D]">tokens per second</p>
-          <div class="mt-6 flex items-end gap-1.5 border-t border-[#CECEBF] pt-5">
-            <span class="h-10 w-full bg-[#302B28]"></span>
-            <span class="h-16 w-full bg-[#302B28]"></span>
-            <span class="h-8 w-full bg-[#E8E8DE]"></span>
-            <span class="h-20 w-full bg-[#F43E01]"></span>
-            <span class="h-12 w-full bg-[#302B28]"></span>
-            <span class="h-14 w-full bg-[#302B28]"></span>
-          </div>
-          <p class="mt-3 font-mono text-[10px] uppercase tracking-[0.18em] text-[#69695D]">Last 6 minutes</p>
-        </div>
-      </div>
-    </section>
-
-    <section id="numbers" class="border-y border-[#CECEBF] bg-[#FAFAF8]">
-      <div class="mx-auto grid max-w-6xl grid-cols-2 divide-[#CECEBF] px-6 sm:grid-cols-4 sm:divide-x">
-        <div class="py-7 sm:px-6"><p class="font-mono text-[10px] uppercase tracking-[0.18em] text-[#69695D]">Latency</p><p class="mt-2 text-3xl tracking-[-0.04em]">&lt;1s</p></div>
-        <div class="py-7 sm:px-6"><p class="font-mono text-[10px] uppercase tracking-[0.18em] text-[#69695D]">Build steps</p><p class="mt-2 text-3xl tracking-[-0.04em]">00</p></div>
-        <div class="py-7 sm:px-6"><p class="font-mono text-[10px] uppercase tracking-[0.18em] text-[#69695D]">Free / day</p><p class="mt-2 text-3xl tracking-[-0.04em]">05</p></div>
-        <div class="py-7 sm:px-6"><p class="font-mono text-[10px] uppercase tracking-[0.18em] text-[#69695D]">Output</p><p class="mt-2 text-3xl tracking-[-0.04em]">1 file</p></div>
-      </div>
-    </section>
-
-    <section id="features" class="mx-auto max-w-6xl px-6 py-16">
-      <div class="flex flex-wrap items-end justify-between gap-4 border-b border-[#CECEBF] pb-6">
-        <h2 class="text-[clamp(1.8rem,4vw,2.8rem)] font-normal leading-none tracking-[-0.04em]">Everything in one file.</h2>
-        <span class="font-mono text-[10px] uppercase tracking-[0.18em] text-[#69695D]">01 — 03</span>
-      </div>
-      <div class="grid gap-px bg-[#CECEBF] sm:grid-cols-3">
-        <article class="bg-[#F3F3EE] py-7 sm:pr-6">
-          <span class="font-mono text-[10px] uppercase tracking-[0.18em] text-[#F43E01]">01</span>
-          <h3 class="mt-3 text-lg font-medium">Instant previews</h3>
-          <p class="mt-2 text-sm leading-relaxed text-[#69695D]">Every token lands in a sandboxed iframe the moment it arrives.</p>
-        </article>
-        <article class="bg-[#F3F3EE] py-7 sm:px-6">
-          <span class="font-mono text-[10px] uppercase tracking-[0.18em] text-[#F43E01]">02</span>
-          <h3 class="mt-3 text-lg font-medium">Real Tailwind</h3>
-          <p class="mt-2 text-sm leading-relaxed text-[#69695D]">Plain HTML with the Tailwind CDN, ready to copy anywhere.</p>
-        </article>
-        <article class="bg-[#F3F3EE] py-7 sm:pl-6">
-          <span class="font-mono text-[10px] uppercase tracking-[0.18em] text-[#F43E01]">03</span>
-          <h3 class="mt-3 text-lg font-medium">Shareable links</h3>
-          <p class="mt-2 text-sm leading-relaxed text-[#69695D]">Publish to a permanent /p/ link that anyone can open.</p>
-        </article>
-      </div>
-    </section>
-
-    <section class="bg-[#F43E01] text-white">
-      <div class="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-14 lg:flex-row lg:items-end lg:justify-between">
-        <h2 class="max-w-[16ch] text-[clamp(2rem,5vw,3.6rem)] font-normal leading-[0.95] tracking-[-0.04em]">Prompt in. Interface out.</h2>
-        <a href="#top" class="inline-flex w-fit items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-medium text-[#302B28]">Start building <i data-lucide="arrow-right" class="h-4 w-4"></i></a>
-      </div>
+    <section class="strip">
+      <article><span>01</span><h2>Files, not blobs</h2><p>The model returns a file bundle; each page is served from storage.</p></article>
+      <article><span>02</span><h3>Its own look</h3><p>Nothing here borrows Openmi's cream-and-orange palette.</p></article>
+      <article><span>03</span><h3>Editable</h3><p>Send a correction in the chat and the project is rewritten in place.</p></article>
     </section>
   </main>
 
-  <footer class="border-t border-[#CECEBF]">
-    <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-6 font-mono text-[10px] uppercase tracking-[0.18em] text-[#69695D]">
-      <span>Northwind Studio</span>
-      <span>Demo output · Openmi</span>
-    </div>
-  </footer>
-</div>
+  <footer>Add a DEEPSEEK_API_KEY to replace this with a real generation.</footer>
+  <script src="app.js"></script>
+</body>
+</html>`;
 
-<script>
-  (function () {
-    var button = document.getElementById("demo-cta");
-    var label = document.getElementById("demo-cta-label");
-    var clicks = 0;
-    if (button && label) {
-      button.addEventListener("click", function () {
-        clicks += 1;
-        label.textContent = clicks === 1 ? "Nice — clicked once" : "Clicked " + clicks + " times";
-      });
-    }
-  })();
-</script>`;
+  const about = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>About — Placeholder Studio</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="bar">
+    <span class="mark">◍</span>
+    <span class="wordmark">Placeholder Studio</span>
+    <nav><a href="index.html">Work</a><a href="about.html">About</a></nav>
+  </header>
+  <main class="narrow">
+    <p class="kicker">Second page</p>
+    <h1>Multi-page output, one preview.</h1>
+    <p class="lede">This file exists to prove relative links work — the navigation above is a real page load, not an anchor.</p>
+    <p><a class="primary" href="index.html">Back to the first page</a></p>
+  </main>
+  <footer>Placeholder build</footer>
+</body>
+</html>`;
+
+  const styles = `:root {
+  --ink: #12100e;
+  --paper: #f6f1e7;
+  --violet: #5b3df5;
+  --line: rgba(18, 16, 14, 0.18);
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: Inter, system-ui, sans-serif;
+  font-weight: 300;
+  line-height: 1.6;
+}
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 1.25rem clamp(1.25rem, 5vw, 3rem);
+  border-bottom: 1px solid var(--line);
+}
+.mark { color: var(--violet); font-size: 1.4rem; }
+.wordmark { font-weight: 500; letter-spacing: -0.01em; margin-right: auto; }
+nav { display: flex; gap: 1.25rem; font-size: 0.85rem; }
+nav a { color: inherit; text-decoration: none; opacity: 0.65; }
+nav a:hover { opacity: 1; }
+main { padding: clamp(2.5rem, 8vw, 6rem) clamp(1.25rem, 5vw, 3rem); max-width: 62rem; }
+main.narrow { max-width: 40rem; }
+.kicker {
+  font-size: 0.7rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #8a8378;
+}
+h1 {
+  font-family: "Instrument Serif", Georgia, serif;
+  font-weight: 400;
+  font-size: clamp(2.5rem, 7vw, 5rem);
+  line-height: 0.98;
+  letter-spacing: -0.02em;
+  margin: 0.6rem 0 1rem;
+  max-width: 22ch;
+}
+h2, h3 { font-family: "Instrument Serif", Georgia, serif; font-weight: 400; font-size: 1.4rem; margin: 0.4rem 0; }
+.lede { font-size: 1.05rem; max-width: 46ch; color: #3c3630; }
+code { background: rgba(91, 61, 245, 0.1); padding: 0.1em 0.35em; border-radius: 4px; font-size: 0.9em; }
+.actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 2rem 0 3rem; }
+.primary, .ghost {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 0.7rem 1.4rem;
+  font-size: 0.9rem;
+  text-decoration: none;
+  border: 1px solid var(--violet);
+}
+.primary { background: var(--violet); color: #fff; }
+.ghost { background: transparent; color: var(--violet); cursor: pointer; font-family: inherit; }
+.strip { display: grid; gap: 1.5rem; border-top: 1px solid var(--line); padding-top: 2rem; }
+.strip article span { font-variant-numeric: tabular-nums; color: var(--violet); font-size: 0.75rem; }
+.strip p { margin: 0.35rem 0 0; color: #4b453e; font-size: 0.95rem; }
+footer {
+  border-top: 1px solid var(--line);
+  padding: 1.5rem clamp(1.25rem, 5vw, 3rem);
+  font-size: 0.75rem;
+  color: #8a8378;
+}
+@media (min-width: 720px) { .strip { grid-template-columns: repeat(3, 1fr); } }
+`;
+
+  const app = `document.getElementById("counter")?.addEventListener("click", (event) => {
+  const button = event.currentTarget;
+  const next = (Number(button.dataset.count || 0) + 1);
+  button.dataset.count = String(next);
+  button.textContent = \`Clicked \${next} time\${next === 1 ? "" : "s"}\`;
+});
+`;
+
+  return [
+    `<<<FILE path="index.html">>>\n${index}\n<<<END FILE>>>`,
+    `<<<FILE path="about.html">>>\n${about}\n<<<END FILE>>>`,
+    `<<<FILE path="styles.css">>>\n${styles}\n<<<END FILE>>>`,
+    `<<<FILE path="app.js">>>\n${app}\n<<<END FILE>>>`,
+    "",
+  ].join("\n");
 }
 
-const CHUNK_SIZE = 96;
-
+/** Streams the placeholder bundle in small chunks like a real provider would. */
 export function demoGenerationStream(prompt: string): ReadableStream<Uint8Array> {
-  const html = buildDemoMarkup(prompt);
   const encoder = new TextEncoder();
+  const bundle = buildDemoBundle(prompt);
+  const chunkSize = 220;
 
   return new ReadableStream<Uint8Array>({
     async start(controller) {
-      for (let index = 0; index < html.length; index += CHUNK_SIZE) {
-        controller.enqueue(encoder.encode(html.slice(index, index + CHUNK_SIZE)));
-        await new Promise((resolve) => setTimeout(resolve, 14));
+      for (let index = 0; index < bundle.length; index += chunkSize) {
+        controller.enqueue(encoder.encode(bundle.slice(index, index + chunkSize)));
+        await new Promise((resolve) => setTimeout(resolve, 12));
       }
       controller.close();
     },

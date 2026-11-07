@@ -13,28 +13,31 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Saved generations — private to their owner. `published_id` links a
-    // generation to the public /p/ page created when it was published.
-    match /generations/{generationId} {
+    // Build chats — private to their owner. File contents ride along here so a
+    // chat can be reopened; the servable copy lives in Firebase Storage under
+    // previews/{chatId}/.
+    match /chats/{chatId} {
       allow read: if request.auth != null && resource.data.user_id == request.auth.uid;
       allow create: if request.auth != null
         && request.resource.data.user_id == request.auth.uid
-        && request.resource.data.code is string
-        && request.resource.data.code.size() < 200000;
+        && request.resource.data.files is list
+        && request.resource.data.files.size() <= 12;
       allow update: if request.auth != null
         && resource.data.user_id == request.auth.uid
         && request.resource.data.user_id == request.auth.uid;
       allow delete: if false;
     }
 
-    // Published creations. Publicly readable, immutable once written.
+    // Published projects. Publicly readable, immutable once written.
     match /projects/{projectId} {
       allow read: if true;
       allow create: if request.auth != null
         && request.resource.data.user_id == request.auth.uid
         && request.resource.data.id == projectId
-        && request.resource.data.code is string
-        && request.resource.data.code.size() < 200000;
+        && (
+          request.resource.data.chat_id is string
+          || (request.resource.data.code is string && request.resource.data.code.size() < 200000)
+        );
       allow update, delete: if false;
     }
   }

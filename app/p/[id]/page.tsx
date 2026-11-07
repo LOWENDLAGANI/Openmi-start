@@ -9,7 +9,14 @@ export const dynamic = "force-dynamic";
 
 type PageProps = { params: Promise<{ id: string }> };
 
-type LoadedProject = { code: string; createdAt: string | null };
+type LoadedProject = {
+  /** Storage-backed multi-file project. */
+  chatId: string | null;
+  entry: string | null;
+  /** Legacy single-file HTML projects. */
+  code: string | null;
+  createdAt: string | null;
+};
 
 const PROJECT_ID_PATTERN = /^[a-z0-9]{3,40}$/;
 
@@ -34,14 +41,23 @@ async function loadProject(id: string): Promise<LoadedProject | null> {
   const data = (await response.json()) as {
     fields?: {
       code?: { stringValue?: string };
+      chat_id?: { stringValue?: string };
+      entry?: { stringValue?: string };
       created_at?: { timestampValue?: string };
     };
   };
 
-  const code = data.fields?.code?.stringValue;
-  if (typeof code !== "string" || !code.trim()) return null;
+  const chatId = data.fields?.chat_id?.stringValue ?? null;
+  const code = data.fields?.code?.stringValue ?? null;
 
-  return { code, createdAt: data.fields?.created_at?.timestampValue ?? null };
+  if (!chatId && !(typeof code === "string" && code.trim())) return null;
+
+  return {
+    chatId,
+    entry: data.fields?.entry?.stringValue ?? "index.html",
+    code,
+    createdAt: data.fields?.created_at?.timestampValue ?? null,
+  };
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -100,7 +116,9 @@ export default async function PublishedProjectPage({ params }: PageProps) {
     <main className="fixed inset-0 bg-paper">
       <iframe
         title={`Openmi project ${id}`}
-        srcDoc={buildPreviewDocument(project.code)}
+        {...(project.chatId
+          ? { src: `/api/preview/${project.chatId}/${project.entry ?? "index.html"}` }
+          : { srcDoc: buildPreviewDocument(project.code ?? "") })}
         sandbox="allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-downloads"
         className="h-full w-full border-0 bg-white"
       />

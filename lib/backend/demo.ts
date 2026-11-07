@@ -1,11 +1,10 @@
 import { DAILY_GENERATION_LIMIT, DEMO_STORAGE_KEYS } from "@/lib/config";
 
 import {
-  randomProjectId,
   todayKey,
   type Backend,
+  type ChatRecord,
   type ConsumeResult,
-  type GenerationRecord,
   type Quota,
   type SessionUser,
 } from "./types";
@@ -86,38 +85,36 @@ function writeQuota(quota: Quota): void {
   }
 }
 
-function readHistory(): GenerationRecord[] {
+function readChats(): ChatRecord[] {
   const store = storage();
   if (!store) return [];
   try {
-    const raw = store.getItem(DEMO_STORAGE_KEYS.history);
+    const raw = store.getItem(DEMO_STORAGE_KEYS.chats);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter((entry): entry is GenerationRecord => {
-        const record = entry as GenerationRecord | null;
-        return Boolean(record && typeof record.id === "string" && typeof record.code === "string");
-      })
-      .slice(0, 20);
+    return parsed.filter((entry): entry is ChatRecord => {
+      const chat = entry as ChatRecord | null;
+      return Boolean(chat && typeof chat.id === "string" && Array.isArray(chat.files));
+    });
   } catch {
     return [];
   }
 }
 
-function writeHistory(records: GenerationRecord[]): void {
+function writeChats(chats: ChatRecord[]): void {
   const store = storage();
   if (!store) return;
   try {
-    store.setItem(DEMO_STORAGE_KEYS.history, JSON.stringify(records.slice(0, 20)));
+    store.setItem(DEMO_STORAGE_KEYS.chats, JSON.stringify(chats.slice(0, 5)));
   } catch {
-    /* ignore */
+    /* quota exceeded - the live session still works */
   }
 }
 
 /**
- * Keyless mode: lets the builder, quota counter, live preview and build history
- * be tried without any Firebase project. Nothing leaves the browser.
+ * Keyless mode: lets the chat, multi-file preview, quota counter and history be
+ * tried without any Firebase project. Files stay in this browser.
  */
 export const demoBackend: Backend = {
   mode: "demo",
@@ -187,20 +184,13 @@ export const demoBackend: Backend = {
     return { allowed: true, quota: next };
   },
 
-  async listGenerations() {
-    return readHistory();
+  async listChats() {
+    return readChats().sort((a, b) => b.updatedAt - a.updatedAt);
   },
 
-  async saveGeneration(_user, { prompt, code }) {
-    const record: GenerationRecord = {
-      id: randomProjectId(12),
-      prompt,
-      code,
-      createdAt: Date.now(),
-      publishedId: null,
-    };
-    writeHistory([record, ...readHistory()]);
-    return record;
+  async saveChat(_user, chat) {
+    const others = readChats().filter((entry) => entry.id !== chat.id);
+    writeChats([chat, ...others]);
   },
 
   async publish() {

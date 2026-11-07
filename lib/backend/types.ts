@@ -24,23 +24,33 @@ export type PublishResult = {
   id: string;
 };
 
-/** A saved generation, shown in the build history. */
-export type GenerationRecord = {
-  id: string;
-  prompt: string;
-  code: string;
+export type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
   /** Epoch milliseconds. */
+  at: number;
+};
+
+export type ChatFile = { path: string; content: string };
+
+/**
+ * One build conversation. Files live in Firebase Storage (served by
+ * `/api/preview/<id>/`) and a copy rides along here so a chat can be reopened
+ * and continued without another round-trip.
+ */
+export type ChatRecord = {
+  id: string;
+  title: string;
+  entry: string;
+  files: ChatFile[];
+  messages: ChatMessage[];
   createdAt: number;
+  updatedAt: number;
   publishedId: string | null;
 };
 
 export type BackendMode = "firebase" | "demo";
 
-/**
- * Everything the UI needs from persistence. Two implementations exist:
- * Firestore (real accounts, server-charged quota, published projects) and an
- * offline localStorage demo used when Firebase keys are missing.
- */
 export interface Backend {
   readonly mode: BackendMode;
   /** Subscribe to session changes. Returns an unsubscribe function. */
@@ -55,7 +65,7 @@ export interface Backend {
   resendVerificationEmail(): Promise<void>;
   /** Re-reads the account so a freshly verified email is reflected. */
   refreshUser(): Promise<SessionUser | null>;
-  /** Bearer token for /api/generate; null when there is no server identity. */
+  /** Bearer token for the server routes; null when there is no server identity. */
   getIdToken(): Promise<string | null>;
   /** Reads the quota. Server-side documents are created on first charge. */
   loadQuota(user: SessionUser): Promise<Quota>;
@@ -64,16 +74,10 @@ export interface Backend {
    * With Firebase, credits are charged by the server once generation succeeds.
    */
   consumeQuota(user: SessionUser): Promise<ConsumeResult>;
-  listGenerations(user: SessionUser): Promise<GenerationRecord[]>;
-  saveGeneration(
-    user: SessionUser,
-    input: { prompt: string; code: string },
-  ): Promise<GenerationRecord>;
-  /** Stores the creation and returns its public id. */
-  publish(
-    user: SessionUser,
-    input: { code: string; generationId?: string | null },
-  ): Promise<PublishResult>;
+  listChats(user: SessionUser): Promise<ChatRecord[]>;
+  saveChat(user: SessionUser, chat: ChatRecord): Promise<void>;
+  /** Publishes a chat's project and returns its public id. */
+  publish(user: SessionUser, input: { chatId: string; entry: string }): Promise<PublishResult>;
 }
 
 /** UTC day key: quota windows roll over at midnight UTC. */
@@ -94,4 +98,10 @@ export function randomProjectId(length = 6): string {
   let id = "";
   for (let i = 0; i < length; i += 1) id += alphabet[bytes[i] % alphabet.length];
   return id;
+}
+
+export function chatTitle(prompt: string): string {
+  const clean = prompt.trim().replace(/\s+/g, " ");
+  if (!clean) return "Untitled build";
+  return clean.length > 58 ? `${clean.slice(0, 58).trim()}…` : clean;
 }

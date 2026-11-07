@@ -1,6 +1,7 @@
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { getAuth, type Auth } from "firebase-admin/auth";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
+import { getStorage, type Storage } from "firebase-admin/storage";
 
 /**
  * Firebase Admin credentials. The admin SDK bypasses Firestore rules, which is
@@ -80,4 +81,14 @@ export function adminAuth(): Auth {
 
 export function adminDb(): Firestore {
   return getFirestore(adminApp());
+}
+
+export function adminStorage(): Storage {
+  return getStorage(adminApp());
+}
+
+/** The project bucket, or FIREBASE_STORAGE_BUCKET when set explicitly. */
+export function adminBucket() {
+  const name = process.env.FIREBASE_STORAGE_BUCKET?.trim();
+  return name ? adminStorage().bucket(name) : adminStorage().bucket();
 }

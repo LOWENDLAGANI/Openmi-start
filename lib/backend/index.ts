@@ -10,8 +10,10 @@ export function getBackend(): Backend {
 
 export type {
   Backend,
+  ChatFile,
+  ChatMessage,
+  ChatRecord,
   ConsumeResult,
-  GenerationRecord,
   PublishResult,
   Quota,
   SessionUser,
