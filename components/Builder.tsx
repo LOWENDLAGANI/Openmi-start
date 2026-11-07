@@ -6,7 +6,7 @@ import type { AiStatus } from "@/lib/ai-config";
 import type { ChatFile, ChatMessage, ChatRecord } from "@/lib/backend/types";
 import { chatTitle, randomProjectId } from "@/lib/backend/types";
 import { PROMPT_EXAMPLES } from "@/lib/prompts";
-import { isFirebaseConfigured } from "@/lib/config";
+import { isFirebaseConfigured, PENDING_PROMPT_KEY } from "@/lib/config";
 import { activeFilePath, bundleSize, parseFileBundle } from "@/lib/file-bundle";
 import { buildInlinePreview, formatBytesNumber } from "@/lib/preview-html";
 
@@ -101,6 +101,19 @@ export function Builder({ ai, quotaServer }: { ai: AiStatus; quotaServer: boolea
 
   useEffect(() => {
     return () => abortRef.current?.abort();
+  }, []);
+
+  // A prompt typed on the landing page before signing in lands in the composer.
+  useEffect(() => {
+    try {
+      const pending = sessionStorage.getItem(PENDING_PROMPT_KEY);
+      if (pending) {
+        sessionStorage.removeItem(PENDING_PROMPT_KEY);
+        setInput(pending);
+      }
+    } catch {
+      /* private mode */
+    }
   }, []);
 
   useEffect(() => {
@@ -411,6 +424,20 @@ export function Builder({ ai, quotaServer }: { ai: AiStatus; quotaServer: boolea
           <button type="button" onClick={startNewChat} className="btn-quiet h-9 px-3 text-xs">
             New chat
           </button>
+          <button
+            type="button"
+            onClick={() => void handlePublish()}
+            disabled={!hasOutput || streaming || publishing}
+            className="btn-primary h-9 px-3.5 text-xs"
+            title={hasOutput ? "Publish this project" : "Build something first"}
+          >
+            {publishing ? (
+              <LoaderIcon className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <LinkIcon className="h-3.5 w-3.5" />
+            )}
+            {publishing ? "Publishing" : "Publish"}
+          </button>
           <span className="hidden h-4 w-px bg-line sm:block" />
           <button
             type="button"
@@ -613,47 +640,33 @@ export function Builder({ ai, quotaServer }: { ai: AiStatus; quotaServer: boolea
               </p>
             ) : null}
 
-            {hasOutput ? (
-              <div className="mt-2 flex items-center gap-2">
+            {published ? (
+              <div className="mt-2 flex items-center gap-2 border border-line bg-paper px-2.5 py-1.5">
+                <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-inkSoft">
+                  {published.url}
+                </span>
                 <button
                   type="button"
-                  onClick={() => void handlePublish()}
-                  disabled={publishing || streaming}
-                  className="btn-outline h-9 flex-1 text-[11px]"
+                  onClick={() => {
+                    void navigator.clipboard
+                      .writeText(published.url)
+                      .then(() => push({ tone: "success", title: "Link copied" }))
+                      .catch(() => push({ tone: "error", title: "Copy failed", description: published.url }));
+                  }}
+                  className="btn-quiet h-7 px-2"
+                  title="Copy link"
                 >
-                  {publishing ? (
-                    <LoaderIcon className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <LinkIcon className="h-3.5 w-3.5" />
-                  )}
-                  {publishing ? "Publishing…" : "Publish"}
+                  <CopyIcon className="h-3.5 w-3.5" />
                 </button>
-                {published ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void navigator.clipboard
-                          .writeText(published.url)
-                          .then(() => push({ tone: "success", title: "Link copied" }))
-                          .catch(() => push({ tone: "error", title: "Copy failed", description: published.url }));
-                      }}
-                      className="btn-quiet h-9 px-2.5"
-                      title="Copy link"
-                    >
-                      <CopyIcon className="h-3.5 w-3.5" />
-                    </button>
-                    <a
-                      href={published.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="btn-quiet h-9 px-2.5"
-                      title="Open published page"
-                    >
-                      <ExternalLinkIcon className="h-3.5 w-3.5" />
-                    </a>
-                  </>
-                ) : null}
+                <a
+                  href={published.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn-quiet h-7 px-2"
+                  title="Open published page"
+                >
+                  <ExternalLinkIcon className="h-3.5 w-3.5" />
+                </a>
               </div>
             ) : null}
 

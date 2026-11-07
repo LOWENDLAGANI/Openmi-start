@@ -26,6 +26,9 @@ export const COLLECTIONS = {
   chats: "chats",
 } as const;
 
+/** A prompt typed on the landing page, carried into the builder after sign-in. */
+export const PENDING_PROMPT_KEY = "openmi:pending-prompt";
+
 /** KV store keys used by the keyless demo backend. */
 export const DEMO_STORAGE_KEYS = {
   session: "openmi:demo:session",
