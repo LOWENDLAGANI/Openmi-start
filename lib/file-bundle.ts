@@ -69,10 +69,16 @@ export function parseFileBundle(raw: string): FileBundle {
   }
   flush();
 
-  // The model ignored the format: treat the whole answer as one page.
+  // The model ignored the format: treat the whole answer as one page, but only
+  // if it actually looks like markup. A plain prose reply is a chat message —
+  // a clarifying question, say — not a one-file site.
   if (files.length === 0) {
     const html = cleanGeneratedHtml(raw);
-    if (html) files.push({ path: "index.html", content: html });
+    const looksLikeMarkup =
+      /<(html|body|main|div|section|header|nav|aside|footer|style|script|h1|h2|p|a|button|form|svg|table|ul)\b/i.test(
+        html,
+      );
+    if (html && looksLikeMarkup) files.push({ path: "index.html", content: html });
   }
 
   const entry =

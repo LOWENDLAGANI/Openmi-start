@@ -158,7 +158,6 @@ export function Builder({ ai, quotaServer }: { ai: AiStatus; quotaServer: boolea
     setMessages([...contextMessages, { role: "assistant", content: "", at: sentAt + 1 }]);
     setInput("");
     setStreaming(true);
-    setPublished(null);
 
     const token = await getIdToken().catch(() => null);
     const controller = new AbortController();
@@ -215,42 +214,58 @@ export function Builder({ ai, quotaServer }: { ai: AiStatus; quotaServer: boolea
       accumulated += decoder.decode();
 
       const bundle = parseFileBundle(accumulated);
-      if (!bundle.files.length) {
-        throw new Error("The model returned no files. Try rephrasing your request.");
+      const existing = chats.find((chat) => chat.id === chatId);
+      const now = Date.now();
+
+      let nextFiles = files;
+      let nextEntry = entry;
+      let assistantMessage: ChatMessage;
+
+      if (bundle.files.length) {
+        nextFiles = bundle.files;
+        nextEntry = bundle.entry;
+        setFiles(bundle.files);
+        setEntry(bundle.entry);
+        setLiveHtml(buildInlinePreview(bundle));
+        setActiveFile(null);
+
+        // The server charged the credit before it closed the stream, so this
+        // re-read already sees the settled counter.
+        try {
+          if (mode === "demo") await consume();
+          else await refreshQuota();
+        } catch (error) {
+          console.error("[openmi] could not settle the quota", error);
+        }
+
+        assistantMessage = {
+          role: "assistant",
+          content: `${bundle.files.length} file${bundle.files.length === 1 ? "" : "s"} · ${formatBytesNumber(
+            bundleSize(bundle.files),
+          )} — ${bundle.files.map((file) => file.path).join(", ")}`,
+          at: now,
+        };
+      } else {
+        // No files: the model answered or asked a question instead of building.
+        // The server stored and charged nothing, so show the reply as chat text.
+        const reply = accumulated.trim().slice(0, 6000);
+        if (!reply) throw new Error("The model returned nothing usable. Try rephrasing your request.");
+        assistantMessage = { role: "assistant", content: reply, at: now };
       }
 
-      setFiles(bundle.files);
-      setEntry(bundle.entry);
-      setLiveHtml(buildInlinePreview(bundle));
-      setActiveFile(null);
-
-      // The server charges the credit before it closes the stream, so this
-      // re-read already sees the settled counter.
-      try {
-        if (mode === "demo") await consume();
-        else await refreshQuota();
-      } catch (error) {
-        console.error("[openmi] could not settle the quota", error);
-      }
-
-      const summary = `${bundle.files.length} file${bundle.files.length === 1 ? "" : "s"} · ${formatBytesNumber(
-        bundleSize(bundle.files),
-      )} — ${bundle.files.map((file) => file.path).join(", ")}`;
-      const assistantMessage: ChatMessage = { role: "assistant", content: summary, at: Date.now() };
       const nextMessages = [...contextMessages, assistantMessage];
       setMessages(nextMessages);
 
-      const existing = chats.find((chat) => chat.id === chatId);
       try {
         await saveChat({
           id: chatId,
           title: existing?.title ?? chatTitle(instruction),
-          entry: bundle.entry,
-          files: bundle.files,
+          entry: nextEntry,
+          files: nextFiles,
           messages: nextMessages,
           createdAt: existing?.createdAt ?? sentAt,
-          updatedAt: Date.now(),
-          publishedId: null,
+          updatedAt: now,
+          publishedId: existing?.publishedId ?? null,
         });
       } catch (error) {
         console.error("[openmi] could not save this chat", error);

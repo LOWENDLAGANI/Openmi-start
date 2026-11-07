@@ -117,7 +117,8 @@ continues unchanged. Only the returned image URLs are embedded in generated page
 | --- | --- | --- |
 | Provider resolution | `lib/ai-config.ts` | DeepSeek first, OpenAI-compatible fallback, research flag for the UI |
 | Research | `lib/server/research.ts` | Exa search → snippets + image URLs → prompt brief; failures are non-fatal |
-| Generation API | `app/api/generate/route.ts` | Verifies the ID token, pre-checks quota, streams the model, saves files, charges on success |
+| Generation API | `app/api/generate/route.ts` | Verifies the ID token, pre-checks quota, streams the model, saves files, charges only when files were produced |
+| Design brief | `lib/prompts.ts` | A design-agent system prompt (hierarchy, typography, accessibility, no-filler rules) plus the runtime's file/format contract |
 | File format | `lib/file-bundle.ts` | Parses `<<<FILE path="…">>>` blocks, tolerating the unterminated last block |
 | Preview | `lib/preview-html.ts`, `components/PreviewPane.tsx` | Inlines local CSS/JS into a Blob document while streaming |
 | Stored preview | `app/api/preview/[chatId]/[[...path]]/route.ts` | Serves the project from Storage, so relative links between pages resolve |
@@ -144,6 +145,8 @@ the copy that is actually served, so page-to-page links work.
    the bundle, writes the files to Storage, and charges one credit inside a transaction — all before
    closing the stream, so the counter the browser reads afterwards is already settled.
 4. Errors, empty output and interrupted streams charge nothing.
+5. A turn that ships no files is a conversational reply — the model may ask one blocking
+   question or answer a question about the design. Nothing is stored and nothing is charged.
 
 Demo mode (no Firebase) keeps a browser-local counter and decrements it after a successful build; it is
 explicitly not a security boundary.

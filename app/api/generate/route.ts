@@ -248,7 +248,13 @@ export async function POST(request: Request) {
     ? async (text: string) => {
         const { parseFileBundle } = await import("@/lib/file-bundle");
         const bundle = parseFileBundle(text);
-        if (bundle.files.length) await saveBundle(chatId, bundle);
+        // A conversational reply (a clarifying question, a short answer) ships
+        // no files, so there is nothing to store and nothing to charge.
+        if (!bundle.files.length) {
+          console.info("[openmi] conversational reply — no files, no charge");
+          return;
+        }
+        await saveBundle(chatId, bundle);
         const remaining = await chargeGeneration(actor!.uid, actor!.email);
         console.info(
           `[openmi] charged ${actor!.uid} for ${bundle.files.length} file(s), ${remaining} generation(s) left`,
