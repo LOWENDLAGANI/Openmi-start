@@ -173,8 +173,8 @@ export function Landing() {
                   </button>
                   <p className="border border-line bg-paper p-3 font-mono text-[10px] leading-relaxed tracking-[0.02em] text-inkSoft">
                     Placeholder designs stream from the server and quota lives in this browser. Add
-                    Firebase keys plus OPENAI_API_KEY to .env.local for real accounts, quota docs and
-                    shareable links.
+                    Firebase keys plus a DEEPSEEK_API_KEY to .env.local for real accounts, quota docs
+                    and shareable links.
                   </p>
                 </div>
               ) : (

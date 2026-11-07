@@ -1,11 +1,13 @@
 "use client";
 
+import type { AiStatus } from "@/lib/ai-config";
+
 import { useAuth } from "./AuthProvider";
 import { Builder } from "./Builder";
 import { Landing } from "./Landing";
 import { Logo } from "./Logo";
 
-export function AppShell() {
+export function AppShell({ ai }: { ai: AiStatus }) {
   const { ready, user } = useAuth();
 
   if (!ready) {
@@ -22,5 +24,5 @@ export function AppShell() {
     );
   }
 
-  return user ? <Builder /> : <Landing />;
+  return user ? <Builder ai={ai} /> : <Landing />;
 }

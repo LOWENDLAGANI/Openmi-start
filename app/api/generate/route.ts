@@ -1,3 +1,4 @@
+import { resolveAiProvider } from "@/lib/ai-config";
 import { GENERATION_SYSTEM_PROMPT, GENERATION_USER_PREFIX } from "@/lib/prompts";
 
 export const runtime = "nodejs";
@@ -26,19 +27,20 @@ function allowRequest(key: string): boolean {
   return true;
 }
 
-function jsonError(message: string, status: number) {
+function jsonError(message: string, status: number, extra: Record<string, string> = {}) {
   return new Response(JSON.stringify({ error: message }), {
     status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...extra },
   });
 }
 
-function textStreamHeaders(generator: string): HeadersInit {
+function textStreamHeaders(generator: string, model: string): HeadersInit {
   return {
     "Content-Type": "text/plain; charset=utf-8",
     "Cache-Control": "no-store, no-transform",
     "X-Accel-Buffering": "no",
     "X-Openmi-Generator": generator,
+    "X-Openmi-Model": model,
   };
 }
 
@@ -123,19 +125,17 @@ export async function POST(request: Request) {
     return jsonError("Too many generations in a minute. Take a breath and retry shortly.", 429);
   }
 
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
+  const provider = resolveAiProvider();
 
   // No key configured: stream a canned design so the editor stays usable.
-  if (!apiKey) {
+  if (!provider.apiKey) {
     const { demoGenerationStream } = await import("@/lib/demo-generation");
-    return new Response(demoGenerationStream(prompt), { headers: textStreamHeaders("demo") });
+    return new Response(demoGenerationStream(prompt), {
+      headers: textStreamHeaders("demo", "placeholder"),
+    });
   }
 
-  const baseUrl = (process.env.OPENAI_BASE_URL?.trim() || "https://api.openai.com/v1").replace(
-    /\/+$/,
-    "",
-  );
-  const model = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
+  const baseUrl = provider.baseUrl.replace(/\/+$/, "");
 
   let upstream: Response;
   try {
@@ -143,36 +143,45 @@ export async function POST(request: Request) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${provider.apiKey}`,
       },
       body: JSON.stringify({
-        model,
+        model: provider.model,
         stream: true,
-        temperature: 0.8,
+        temperature: 0.7,
         max_tokens: 4096,
         messages: [
           { role: "system", content: GENERATION_SYSTEM_PROMPT },
           { role: "user", content: `${GENERATION_USER_PREFIX}${prompt}` },
         ],
+        ...provider.extraBody,
       }),
       signal: AbortSignal.timeout(55_000),
     });
   } catch (error) {
     console.error("[openmi] provider unreachable", error);
-    return jsonError("Could not reach the AI provider. Check your network and API settings.", 502);
+    return jsonError(
+      `Could not reach ${provider.status.label}. Check the network and API settings.`,
+      502,
+      { "X-Openmi-Generator": provider.status.provider },
+    );
   }
 
   if (!upstream.ok || !upstream.body) {
     const detail = await upstream.text().catch(() => "");
-    console.error("[openmi] provider error", upstream.status, detail.slice(0, 500));
+    console.error("[openmi] provider error", provider.status.provider, upstream.status, detail.slice(0, 500));
     const hint =
       upstream.status === 401 || upstream.status === 403
-        ? "The AI provider rejected the API key."
-        : upstream.status === 429
-          ? "The AI provider is rate limiting requests. Try again in a moment."
-          : "The AI provider returned an error.";
-    return jsonError(hint, 502);
+        ? `${provider.status.label} rejected the API key. Check DEEPSEEK_API_KEY / OPENAI_API_KEY.`
+        : upstream.status === 402
+          ? `${provider.status.label} reports insufficient balance for this key.`
+          : upstream.status === 429
+            ? `${provider.status.label} is rate limiting requests. Try again in a moment.`
+            : `${provider.status.label} returned an error (${upstream.status}).`;
+    return jsonError(hint, 502, { "X-Openmi-Generator": provider.status.provider });
   }
 
-  return new Response(sseToTextStream(upstream.body), { headers: textStreamHeaders("model") });
+  return new Response(sseToTextStream(upstream.body), {
+    headers: textStreamHeaders(provider.status.provider, provider.model),
+  });
 }

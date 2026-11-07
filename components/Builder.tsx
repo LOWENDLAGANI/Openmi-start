@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import type { AiStatus } from "@/lib/ai-config";
+import { isFirebaseConfigured } from "@/lib/config";
 import { cleanGeneratedHtml, formatBytes } from "@/lib/preview-html";
 import { PROMPT_EXAMPLES } from "@/lib/prompts";
 
@@ -38,9 +40,10 @@ function initials(name: string | null, email: string | null): string {
   return letters.join("") || "O";
 }
 
-export function Builder() {
+export function Builder({ ai }: { ai: AiStatus }) {
   const { user, quota, consume, publish, signOutUser, mode } = useAuth();
   const { push } = useToast();
+  const setupIncomplete = mode === "demo" || !ai.configured;
 
   const [prompt, setPrompt] = useState("");
   const [code, setCode] = useState("");
@@ -225,11 +228,20 @@ export function Builder() {
           <Logo />
           <span className="hidden h-4 w-px bg-line sm:block" />
           <span className="eyebrow hidden sm:block">Builder</span>
-          {mode === "demo" ? (
-            <span className="border border-line bg-sand px-2 py-1 font-mono text-[9px] uppercase tracking-[0.16em] text-inkSoft">
-              Demo
-            </span>
-          ) : null}
+          <span
+            title={
+              setupIncomplete
+                ? "Running in demo mode — no Firebase / AI keys in this deployment"
+                : `${ai.label} · ${ai.model}`
+            }
+            className={`border px-2 py-1 font-mono text-[9px] uppercase tracking-[0.16em] ${
+              setupIncomplete
+                ? "border-brand/30 bg-brand-tint text-brand-deep"
+                : "border-line bg-sand text-inkSoft"
+            }`}
+          >
+            {setupIncomplete ? "Setup" : ai.label}
+          </span>
         </div>
 
         <div className="flex items-center gap-3">
@@ -416,16 +428,71 @@ export function Builder() {
             </div>
           ) : null}
 
-          <p className="mt-auto p-5 font-mono text-[10px] leading-relaxed tracking-[0.02em] text-inkSoft">
-            {mode === "demo"
-              ? "Demo mode: placeholder generations, quota stored in this browser."
-              : "Generated code is stored with your account. Publishing makes a link public."}
-          </p>
+          <div className="mt-auto">
+            {setupIncomplete ? <SetupNotice firebaseReady={isFirebaseConfigured} ai={ai} /> : null}
+            <p className="border-t border-line p-5 font-mono text-[10px] leading-relaxed tracking-[0.02em] text-inkSoft">
+              {setupIncomplete
+                ? "Demo mode: placeholder generations, quota stored in this browser."
+                : "Generated code is stored with your account. Publishing makes a link public."}
+            </p>
+          </div>
         </aside>
 
         {/* ------------------------------------------------ right panel */}
         <PreviewPane code={code} streaming={streaming} className="min-h-[440px] lg:min-h-0" />
       </div>
+    </div>
+  );
+}
+
+function SetupNotice({ firebaseReady, ai }: { firebaseReady: boolean; ai: AiStatus }) {
+  const rows = [
+    {
+      ok: firebaseReady,
+      label: "Firebase",
+      env: "NEXT_PUBLIC_FIREBASE_*",
+      note: "Accounts, daily quotas and /p/ links",
+    },
+    {
+      ok: ai.configured,
+      label: ai.configured ? ai.label : "AI provider",
+      env: "DEEPSEEK_API_KEY",
+      note: ai.configured ? `${ai.label} · ${ai.model}` : "Without a key, previews use the placeholder",
+    },
+  ];
+
+  return (
+    <div className="border-t border-line bg-brand-tint/50 p-5">
+      <span className="eyebrow flex items-center gap-2 text-brand-deep">
+        <span className="h-1.5 w-1.5 rounded-full bg-brand" />
+        Setup needed
+      </span>
+      <p className="mt-2 text-[11px] leading-relaxed text-inkSoft">
+        This deployment runs in demo mode because these values are missing.
+      </p>
+      <ul className="mt-3 space-y-2.5">
+        {rows.map((row) => (
+          <li key={row.env} className="flex gap-2">
+            <span
+              className={`mt-0.5 grid h-3.5 w-3.5 shrink-0 place-items-center border font-mono text-[8px] leading-none ${
+                row.ok ? "border-ink bg-ink text-paper" : "border-line bg-paperAlt text-transparent"
+              }`}
+              aria-hidden="true"
+            >
+              ✓
+            </span>
+            <span className="min-w-0">
+              <span className="block font-mono text-[10px] uppercase tracking-[0.12em] text-ink">
+                {row.label}
+              </span>
+              <span className="block break-all font-mono text-[10px] leading-relaxed text-inkSoft">
+                {row.env} · {row.note}
+              </span>
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-3 font-mono text-[10px] text-inkSoft">README → Production checklist</p>
     </div>
   );
 }
