@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { AiStatus } from "@/lib/ai-config";
+import type { GenerationRecord } from "@/lib/backend/types";
 import { isFirebaseConfigured } from "@/lib/config";
 import { cleanGeneratedHtml, formatBytes } from "@/lib/preview-html";
 import { PROMPT_EXAMPLES } from "@/lib/prompts";
@@ -33,6 +34,17 @@ async function readErrorMessage(response: Response): Promise<string> {
   return `The generator responded with ${response.status}.`;
 }
 
+function relativeTime(timestamp: number): string {
+  const minute = 60_000;
+  const hour = 3_600_000;
+  const day = 86_400_000;
+  const diff = Date.now() - timestamp;
+  if (diff < minute) return "just now";
+  if (diff < hour) return `${Math.floor(diff / minute)}m ago`;
+  if (diff < day) return `${Math.floor(diff / hour)}h ago`;
+  return `${Math.floor(diff / day)}d ago`;
+}
+
 function initials(name: string | null, email: string | null): string {
   const source = (name ?? email ?? "O").trim();
   const parts = source.split(/[\s@._-]+/).filter(Boolean);
@@ -40,8 +52,22 @@ function initials(name: string | null, email: string | null): string {
   return letters.join("") || "O";
 }
 
-export function Builder({ ai }: { ai: AiStatus }) {
-  const { user, quota, consume, publish, signOutUser, mode } = useAuth();
+export function Builder({ ai, quotaServer }: { ai: AiStatus; quotaServer: boolean }) {
+  const {
+    user,
+    quota,
+    history,
+    consume,
+    publish,
+    signOutUser,
+    mode,
+    getIdToken,
+    refreshQuota,
+    refreshHistory,
+    saveGeneration,
+    refreshUser,
+    resendVerificationEmail,
+  } = useAuth();
   const { push } = useToast();
   const setupIncomplete = mode === "demo" || !ai.configured;
 
@@ -50,6 +76,8 @@ export function Builder({ ai }: { ai: AiStatus }) {
   const [status, setStatus] = useState<"idle" | "generating">("idle");
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState<{ id: string; url: string } | null>(null);
+  const [generationId, setGenerationId] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const streaming = status === "generating";
@@ -89,29 +117,11 @@ export function Builder({ ai }: { ai: AiStatus }) {
     setStatus("generating");
     setCode("");
     setPublished(null);
+    setGenerationId(null);
 
-    let allowed = false;
-    try {
-      allowed = await consume();
-    } catch (error) {
-      setStatus("idle");
-      push({
-        tone: "error",
-        title: "Could not reserve a generation",
-        description: error instanceof Error ? error.message : "Please try again.",
-      });
-      return;
-    }
-
-    if (!allowed) {
-      setStatus("idle");
-      push({
-        tone: "error",
-        title: "Daily limit reached",
-        description: `You get ${limit} free generations per day. Your quota resets at midnight UTC.`,
-      });
-      return;
-    }
+    // With Firebase the server verifies this token, checks the quota and only
+    // charges a credit once the model actually delivered markup.
+    const token = await getIdToken().catch(() => null);
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -120,7 +130,9 @@ export function Builder({ ai }: { ai: AiStatus }) {
     try {
       const response = await fetch("/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: token
+          ? { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
+          : { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: trimmed }),
         signal: controller.signal,
       });
@@ -157,6 +169,23 @@ export function Builder({ ai }: { ai: AiStatus }) {
         throw new Error("The model returned no usable markup. Try rephrasing your prompt.");
       }
       setCode(cleaned);
+
+      // Settle the quota: demo counts locally, Firebase re-reads the counter the
+      // server wrote before it closed this stream.
+      try {
+        if (mode === "demo") await consume();
+        else await refreshQuota();
+      } catch (error) {
+        console.error("[openmi] could not settle the quota", error);
+      }
+
+      try {
+        const record = await saveGeneration({ prompt: trimmed, code: cleaned });
+        setGenerationId(record.id);
+      } catch (error) {
+        console.error("[openmi] could not save this generation", error);
+      }
+
       push({
         tone: "success",
         title: "Preview ready",
@@ -183,16 +212,29 @@ export function Builder({ ai }: { ai: AiStatus }) {
       abortRef.current = null;
       setStatus("idle");
     }
-  }, [prompt, streaming, quotaLoaded, outOfCredits, limit, consume, push]);
+  }, [
+    prompt,
+    streaming,
+    quotaLoaded,
+    outOfCredits,
+    limit,
+    mode,
+    getIdToken,
+    consume,
+    refreshQuota,
+    saveGeneration,
+    push,
+  ]);
 
   const handlePublish = useCallback(async () => {
     if (!canPublish) return;
     setPublishing(true);
     try {
       const cleaned = cleanGeneratedHtml(code);
-      const { id } = await publish(cleaned);
+      const { id } = await publish({ code: cleaned, generationId });
       const url = `${window.location.origin}/p/${id}`;
       setPublished({ id, url });
+      void refreshHistory();
       try {
         await navigator.clipboard.writeText(url);
         push({
@@ -217,7 +259,68 @@ export function Builder({ ai }: { ai: AiStatus }) {
     } finally {
       setPublishing(false);
     }
-  }, [canPublish, code, publish, push]);
+  }, [canPublish, code, generationId, publish, refreshHistory, push]);
+
+  const openRecord = useCallback(
+    (record: GenerationRecord) => {
+      setPrompt(record.prompt);
+      setCode(record.code);
+      setGenerationId(record.id);
+      setPublished(
+        record.publishedId
+          ? { id: record.publishedId, url: `${window.location.origin}/p/${record.publishedId}` }
+          : null,
+      );
+      push({ tone: "info", title: "Build loaded", description: "Tweak the prompt to iterate, or publish this version." });
+    },
+    [push],
+  );
+
+  const copyShareLink = useCallback(
+    (id: string) => {
+      const url = `${window.location.origin}/p/${id}`;
+      void navigator.clipboard
+        .writeText(url)
+        .then(() => push({ tone: "success", title: "Link copied", description: url }))
+        .catch(() => push({ tone: "error", title: "Copy failed", description: url }));
+    },
+    [push],
+  );
+
+  const handleResendVerification = useCallback(async () => {
+    try {
+      await resendVerificationEmail();
+      push({
+        tone: "success",
+        title: "Verification email sent",
+        description: "Open the link in your inbox, then press “I've verified”.",
+      });
+    } catch (error) {
+      push({
+        tone: "error",
+        title: "Could not send the email",
+        description: error instanceof Error ? error.message : "Try again shortly.",
+      });
+    }
+  }, [resendVerificationEmail, push]);
+
+  const handleCheckedVerification = useCallback(async () => {
+    setVerifying(true);
+    try {
+      const next = await refreshUser();
+      if (next?.emailVerified) {
+        push({ tone: "success", title: "Email verified", description: "Your account is confirmed." });
+      } else {
+        push({
+          tone: "info",
+          title: "Not verified yet",
+          description: "Open the link from the email first, then check again.",
+        });
+      }
+    } finally {
+      setVerifying(false);
+    }
+  }, [refreshUser, push]);
 
   const profileName = useMemo(
     () => user?.displayName ?? user?.email?.split("@")[0] ?? "Builder",
@@ -303,6 +406,36 @@ export function Builder({ ai }: { ai: AiStatus }) {
               ))}
             </div>
           </div>
+
+          {user && !user.emailVerified ? (
+            <div className="border-b border-line bg-brand-tint/40 p-4">
+              <span className="eyebrow flex items-center gap-2 text-brand-deep">
+                <span className="h-1.5 w-1.5 rounded-full bg-brand" />
+                Verify your email
+              </span>
+              <p className="mt-1.5 text-[11px] leading-relaxed text-inkSoft">
+                We sent a link to {user.email}. Verifying lets you recover the account later.
+              </p>
+              <div className="mt-2.5 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleResendVerification()}
+                  disabled={verifying}
+                  className="btn-quiet h-8 flex-1 text-[11px]"
+                >
+                  Resend link
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleCheckedVerification()}
+                  disabled={verifying}
+                  className="btn-outline h-8 flex-1 text-[11px]"
+                >
+                  {verifying ? "Checking…" : "I've verified"}
+                </button>
+              </div>
+            </div>
+          ) : null}
 
           <div className="border-b border-line p-5">
             <div className="flex items-center justify-between">
@@ -431,8 +564,56 @@ export function Builder({ ai }: { ai: AiStatus }) {
             </div>
           ) : null}
 
+          <div className="border-b border-line p-5">
+            <div className="flex items-center justify-between">
+              <span className="eyebrow">03 / Your builds</span>
+              <span className="font-mono text-[10px] text-inkSoft">{history.length}</span>
+            </div>
+
+            {history.length === 0 ? (
+              <p className="mt-2 text-[11px] leading-relaxed text-inkSoft">
+                Every generation is saved here. Reopen one to iterate on it, or share its link.
+              </p>
+            ) : (
+              <ul className="mt-3 space-y-2">
+                {history.slice(0, 6).map((record) => (
+                  <li key={record.id} className="border border-line bg-paper p-2.5">
+                    <p className="line-clamp-2 text-[11px] leading-relaxed text-ink">
+                      {record.prompt || "Untitled build"}
+                    </p>
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-inkSoft">
+                        {relativeTime(record.createdAt)} · {formatBytes(record.code)}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => openRecord(record)}
+                          className="btn-quiet h-7 px-2 text-[10px]"
+                        >
+                          Open
+                        </button>
+                        {record.publishedId ? (
+                          <button
+                            type="button"
+                            onClick={() => copyShareLink(record.publishedId as string)}
+                            className="btn-outline h-7 px-2 text-[10px]"
+                          >
+                            Link
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
           <div className="mt-auto">
-            {setupIncomplete ? <SetupNotice firebaseReady={isFirebaseConfigured} ai={ai} /> : null}
+            {setupIncomplete ? (
+              <SetupNotice firebaseReady={isFirebaseConfigured} ai={ai} quotaServer={quotaServer} />
+            ) : null}
             <p className="border-t border-line p-5 font-mono text-[10px] leading-relaxed tracking-[0.02em] text-inkSoft">
               {setupIncomplete
                 ? "Demo mode: placeholder generations, quota stored in this browser."
@@ -448,7 +629,15 @@ export function Builder({ ai }: { ai: AiStatus }) {
   );
 }
 
-function SetupNotice({ firebaseReady, ai }: { firebaseReady: boolean; ai: AiStatus }) {
+function SetupNotice({
+  firebaseReady,
+  ai,
+  quotaServer,
+}: {
+  firebaseReady: boolean;
+  ai: AiStatus;
+  quotaServer: boolean;
+}) {
   const rows = [
     {
       ok: firebaseReady,
@@ -461,6 +650,12 @@ function SetupNotice({ firebaseReady, ai }: { firebaseReady: boolean; ai: AiStat
       label: ai.configured ? ai.label : "AI provider",
       env: "DEEPSEEK_API_KEY",
       note: ai.configured ? `${ai.label} · ${ai.model}` : "Without a key, previews use the placeholder",
+    },
+    {
+      ok: quotaServer,
+      label: "Server quota",
+      env: "FIREBASE_SERVICE_ACCOUNT_KEY",
+      note: "Charges a credit only after a successful generation",
     },
   ];
 

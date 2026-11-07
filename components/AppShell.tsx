@@ -7,7 +7,7 @@ import { Builder } from "./Builder";
 import { Landing } from "./Landing";
 import { Logo } from "./Logo";
 
-export function AppShell({ ai }: { ai: AiStatus }) {
+export function AppShell({ ai, quotaServer }: { ai: AiStatus; quotaServer: boolean }) {
   const { ready, user } = useAuth();
 
   if (!ready) {
@@ -24,5 +24,5 @@ export function AppShell({ ai }: { ai: AiStatus }) {
     );
   }
 
-  return user ? <Builder ai={ai} /> : <Landing />;
+  return user ? <Builder ai={ai} quotaServer={quotaServer} /> : <Landing />;
 }

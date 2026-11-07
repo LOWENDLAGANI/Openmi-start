@@ -1,5 +1,8 @@
 import { resolveAiProvider } from "@/lib/ai-config";
+import { DAILY_GENERATION_LIMIT } from "@/lib/config";
 import { GENERATION_SYSTEM_PROMPT, GENERATION_USER_PREFIX } from "@/lib/prompts";
+import { adminAuth, isAdminConfigured } from "@/lib/server/admin";
+import { chargeGeneration, readRemaining } from "@/lib/server/quota";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,6 +11,8 @@ export const maxDuration = 60;
 const RATE_WINDOW_MS = 60_000;
 const RATE_MAX_REQUESTS = 10;
 const MAX_PROMPT_LENGTH = 2000;
+/** Below this the model produced nothing usable, so nothing is charged. */
+const MIN_CHARGEABLE_CHARS = 20;
 
 type RateEntry = { count: number; resetAt: number };
 const rateBuckets = new Map<string, RateEntry>();
@@ -47,8 +52,15 @@ function textStreamHeaders(generator: string, model: string): HeadersInit {
 /**
  * Turns an OpenAI-compatible SSE stream into a plain text stream of HTML
  * tokens, so the browser can simply append chunks to the preview.
+ *
+ * `onSuccess` runs once the upstream stream ends normally with real output —
+ * before the stream closes, so a client that re-reads its quota afterwards
+ * always sees the settled number.
  */
-function sseToTextStream(source: ReadableStream<Uint8Array>): ReadableStream<Uint8Array> {
+function sseToTextStream(
+  source: ReadableStream<Uint8Array>,
+  onSuccess?: (characters: number) => Promise<void>,
+): ReadableStream<Uint8Array> {
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
 
@@ -56,6 +68,19 @@ function sseToTextStream(source: ReadableStream<Uint8Array>): ReadableStream<Uin
     async start(controller) {
       const reader = source.getReader();
       let buffer = "";
+      let produced = 0;
+      let settled = false;
+
+      const settle = async () => {
+        if (settled) return;
+        settled = true;
+        if (!onSuccess || produced < MIN_CHARGEABLE_CHARS) return;
+        try {
+          await onSuccess(produced);
+        } catch (error) {
+          console.error("[openmi] could not charge the generation", error);
+        }
+      };
 
       try {
         while (true) {
@@ -73,6 +98,9 @@ function sseToTextStream(source: ReadableStream<Uint8Array>): ReadableStream<Uin
             const payload = line.slice(5).trim();
             if (!payload) continue;
             if (payload === "[DONE]") {
+              produced += out.length;
+              if (out) controller.enqueue(encoder.encode(out));
+              await settle();
               controller.close();
               return;
             }
@@ -86,10 +114,16 @@ function sseToTextStream(source: ReadableStream<Uint8Array>): ReadableStream<Uin
               // Ignore keep-alive comments and partial frames.
             }
           }
-          if (out) controller.enqueue(encoder.encode(out));
+          if (out) {
+            produced += out.length;
+            controller.enqueue(encoder.encode(out));
+          }
         }
+
+        await settle();
         controller.close();
       } catch (error) {
+        // An interrupted generation is not a successful one: no charge.
         controller.error(error);
       } finally {
         reader.releaseLock();
@@ -124,6 +158,52 @@ export async function POST(request: Request) {
   if (!allowRequest(clientKey)) {
     return jsonError("Too many generations in a minute. Take a breath and retry shortly.", 429);
   }
+
+  // --- identity + quota ----------------------------------------------------
+  // With admin credentials present the quota is authoritative: a valid ID
+  // token is required, the counter is checked here, and it is only decremented
+  // after the model actually delivers output. Without admin credentials the
+  // app is in demo mode and nothing is charged.
+  const quotaConfigured = isAdminConfigured();
+  const authHeader = request.headers.get("authorization") ?? "";
+  let actor: { uid: string; email: string | null } | null = null;
+
+  if (authHeader.startsWith("Bearer ")) {
+    if (!quotaConfigured) {
+      return jsonError(
+        "Server quota is not configured. Add FIREBASE_SERVICE_ACCOUNT_KEY to the server environment.",
+        503,
+      );
+    }
+    try {
+      const decoded = await adminAuth().verifyIdToken(authHeader.slice(7).trim());
+      actor = { uid: decoded.uid, email: decoded.email ?? null };
+    } catch {
+      return jsonError("Your session has expired. Sign in again to keep generating.", 401);
+    }
+  }
+
+  if (quotaConfigured) {
+    if (!actor) {
+      return jsonError("Sign in to generate — credits are charged to your account.", 401);
+    }
+    const remaining = await readRemaining(actor.uid);
+    if (remaining <= 0) {
+      return jsonError(
+        `Daily limit reached — ${DAILY_GENERATION_LIMIT} generations per day. Your quota resets at midnight UTC.`,
+        429,
+      );
+    }
+  }
+
+  const charge = actor
+    ? async (characters: number) => {
+        const remaining = await chargeGeneration(actor!.uid, actor!.email);
+        console.info(
+          `[openmi] charged ${actor!.uid} ${characters} chars, ${remaining} generation(s) left`,
+        );
+      }
+    : undefined;
 
   const provider = resolveAiProvider();
 
@@ -181,7 +261,7 @@ export async function POST(request: Request) {
     return jsonError(hint, 502, { "X-Openmi-Generator": provider.status.provider });
   }
 
-  return new Response(sseToTextStream(upstream.body), {
+  return new Response(sseToTextStream(upstream.body, charge), {
     headers: textStreamHeaders(provider.status.provider, provider.model),
   });
 }

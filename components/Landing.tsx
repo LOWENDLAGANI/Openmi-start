@@ -35,13 +35,13 @@ const STEPS = [
 ];
 
 export function Landing() {
-  const { signInWithGoogle, signInWithEmail, signUpWithEmail, mode } = useAuth();
+  const { signInWithGoogle, signInWithEmail, signUpWithEmail, sendPasswordReset, mode } = useAuth();
   const { push } = useToast();
 
   const [tab, setTab] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState<"google" | "email" | null>(null);
+  const [busy, setBusy] = useState<"google" | "email" | "reset" | null>(null);
 
   async function run(kind: "google" | "email", action: () => Promise<void>) {
     setBusy(kind);
@@ -67,6 +67,43 @@ export function Landing() {
     void run("email", () =>
       tab === "signin" ? signInWithEmail(email, password) : signUpWithEmail(email, password),
     );
+  }
+
+  async function handleReset() {
+    if (!email.trim()) {
+      push({
+        tone: "error",
+        title: "Enter your email first",
+        description: "Type the address you signed up with, then request the reset link.",
+      });
+      return;
+    }
+    setBusy("reset");
+    try {
+      await sendPasswordReset(email);
+      push({
+        tone: "success",
+        title: "Reset link sent",
+        description: `Check ${email.trim()} for a link to choose a new password.`,
+      });
+    } catch (error) {
+      const code =
+        typeof error === "object" && error !== null && "code" in error
+          ? String((error as { code?: unknown }).code)
+          : "";
+      // Never confirm whether an address has an account.
+      if (code === "auth/user-not-found") {
+        push({
+          tone: "info",
+          title: "If that account exists",
+          description: "A reset link is on its way. Check your inbox and spam folder.",
+        });
+      } else {
+        push({ tone: "error", title: "Could not send the reset link", description: describeAuthError(error) });
+      }
+    } finally {
+      setBusy(null);
+    }
   }
 
   return (
@@ -218,7 +255,19 @@ export function Landing() {
                       </span>
                     </label>
                     <label className="block">
-                      <span className="eyebrow">Password</span>
+                      <span className="flex items-center justify-between gap-3">
+                        <span className="eyebrow">Password</span>
+                        {tab === "signin" ? (
+                          <button
+                            type="button"
+                            onClick={() => void handleReset()}
+                            disabled={busy !== null}
+                            className="font-mono text-[10px] uppercase tracking-[0.1em] text-inkSoft underline underline-offset-4 transition-colors hover:text-ink disabled:opacity-50"
+                          >
+                            {busy === "reset" ? "Sending…" : "Forgot?"}
+                          </button>
+                        ) : null}
+                      </span>
                       <span className="relative mt-2 block">
                         <LockIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-inkSoft" />
                         <input

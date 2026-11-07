@@ -4,17 +4,26 @@ rules_version = '2';
 // Deploy with:  firebase deploy --only firestore:rules
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Per-user quota document. Only the owner can read or write it.
+    // Per-user quota document.
+    // Readable by the owner so the counter can render, but never writable from
+    // the browser: credits are charged by the server (Admin SDK) only after a
+    // generation succeeds. Clients that try to write are rejected.
     match /users/{uid} {
       allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // Saved generations — private to their owner. `published_id` links a
+    // generation to the public /p/ page created when it was published.
+    match /generations/{generationId} {
+      allow read: if request.auth != null && resource.data.user_id == request.auth.uid;
       allow create: if request.auth != null
-        && request.auth.uid == uid
-        && request.resource.data.generations_left is int;
+        && request.resource.data.user_id == request.auth.uid
+        && request.resource.data.code is string
+        && request.resource.data.code.size() < 200000;
       allow update: if request.auth != null
-        && request.auth.uid == uid
-        && request.resource.data.generations_left is int
-        && request.resource.data.generations_left >= 0
-        && request.resource.data.generations_left <= 5;
+        && resource.data.user_id == request.auth.uid
+        && request.resource.data.user_id == request.auth.uid;
       allow delete: if false;
     }
 

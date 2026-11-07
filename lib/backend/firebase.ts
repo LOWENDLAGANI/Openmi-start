@@ -4,6 +4,9 @@ import {
   createUserWithEmailAndPassword,
   getAuth,
   onAuthStateChanged,
+  reload,
+  sendEmailVerification,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
@@ -11,12 +14,17 @@ import {
   type User,
 } from "firebase/auth";
 import {
+  collection,
   doc,
   getDoc,
+  getDocs,
   getFirestore,
-  runTransaction,
+  limit as limitQuery,
+  query,
   serverTimestamp,
   setDoc,
+  updateDoc,
+  where,
   type Firestore,
 } from "firebase/firestore";
 
@@ -26,7 +34,8 @@ import {
   randomProjectId,
   todayKey,
   type Backend,
-  type ConsumeResult,
+  type GenerationRecord,
+  type PublishResult,
   type Quota,
   type SessionUser,
 } from "./types";
@@ -58,6 +67,7 @@ function toSessionUser(user: User): SessionUser {
     email: user.email,
     displayName: user.displayName,
     photoURL: user.photoURL,
+    emailVerified: user.emailVerified,
   };
 }
 
@@ -66,37 +76,31 @@ function quotaFor(remaining: number): Quota {
 }
 
 /**
- * Ensures a `users/{uid}` document exists and applies the daily reset.
- * Runs inside a transaction so concurrent tabs cannot double-reset.
+ * Read-only quota lookup. The `users/{uid}` document is created and written by
+ * the server (Admin SDK) when a generation is charged; Firestore rules deny
+ * client writes so the counter cannot be edited from the browser.
  */
-async function syncQuota(uid: string, email: string | null): Promise<Quota> {
-  const ref = doc(db(), COLLECTIONS.users, uid);
-  const today = todayKey();
+async function readQuota(uid: string): Promise<Quota> {
+  const snapshot = await getDoc(doc(db(), COLLECTIONS.users, uid));
+  if (!snapshot.exists) return quotaFor(DAILY_GENERATION_LIMIT);
 
-  return runTransaction(db(), async (tx) => {
-    const snapshot = await tx.get(ref);
-    if (!snapshot.exists()) {
-      tx.set(ref, {
-        email,
-        generations_left: DAILY_GENERATION_LIMIT,
-        last_reset_date: today,
-        created_at: serverTimestamp(),
-      });
-      return quotaFor(DAILY_GENERATION_LIMIT);
-    }
+  const data = snapshot.data() ?? {};
+  if (data.last_reset_date !== todayKey()) return quotaFor(DAILY_GENERATION_LIMIT);
 
-    const data = snapshot.data();
-    const storedDate = typeof data.last_reset_date === "string" ? data.last_reset_date : "";
-    const storedLeft = typeof data.generations_left === "number" ? data.generations_left : 0;
+  const stored = typeof data.generations_left === "number" ? data.generations_left : 0;
+  return quotaFor(Math.max(0, Math.min(DAILY_GENERATION_LIMIT, stored)));
+}
 
-    if (storedDate !== today) {
-      tx.update(ref, { generations_left: DAILY_GENERATION_LIMIT, last_reset_date: today });
-      return quotaFor(DAILY_GENERATION_LIMIT);
-    }
-
-    const remaining = Math.max(0, Math.min(DAILY_GENERATION_LIMIT, storedLeft));
-    return quotaFor(remaining);
-  });
+function toGenerationRecord(id: string, data: Record<string, unknown>): GenerationRecord {
+  const stamp = data.created_at as { toMillis?: () => number } | null | undefined;
+  const createdAt = typeof stamp?.toMillis === "function" ? stamp.toMillis() : Date.now();
+  return {
+    id,
+    prompt: typeof data.prompt === "string" ? data.prompt : "",
+    code: typeof data.code === "string" ? data.code : "",
+    createdAt,
+    publishedId: typeof data.published_id === "string" ? data.published_id : null,
+  };
 }
 
 export const firebaseBackend: Backend = {
@@ -117,52 +121,81 @@ export const firebaseBackend: Backend = {
   },
 
   async signUpWithEmail(email, password) {
-    await createUserWithEmailAndPassword(auth(), email.trim(), password);
+    const credential = await createUserWithEmailAndPassword(auth(), email.trim(), password);
+    // A failed verification mail must not undo a successful sign-up.
+    await sendEmailVerification(credential.user).catch((error: unknown) => {
+      console.error("[openmi] could not send the verification email", error);
+    });
   },
 
   async signOutUser() {
     await signOut(auth());
   },
 
+  async sendPasswordReset(email) {
+    await sendPasswordResetEmail(auth(), email.trim());
+  },
+
+  async resendVerificationEmail() {
+    const current = auth().currentUser;
+    if (!current) throw new Error("Sign in again to verify your email.");
+    if (current.emailVerified) return;
+    await sendEmailVerification(current);
+  },
+
+  async refreshUser() {
+    const current = auth().currentUser;
+    if (!current) return null;
+    await reload(current);
+    return toSessionUser(current);
+  },
+
+  async getIdToken() {
+    const current = auth().currentUser;
+    if (!current) return null;
+    return current.getIdToken();
+  },
+
   loadQuota(user) {
-    return syncQuota(user.uid, user.email);
+    return readQuota(user.uid);
   },
 
-  async consumeQuota(user): Promise<ConsumeResult> {
-    const ref = doc(db(), COLLECTIONS.users, user.uid);
-    const today = todayKey();
+  async consumeQuota(): Promise<never> {
+    throw new Error(
+      "Quota is charged by the server after a successful generation; the browser cannot spend credits.",
+    );
+  },
 
-    return runTransaction(db(), async (tx) => {
-      const snapshot = await tx.get(ref);
-      const data = snapshot.exists() ? snapshot.data() : null;
+  async listGenerations(user) {
+    // Single-field equality keeps this index-free; ordering happens client-side.
+    const snapshot = await getDocs(
+      query(
+        collection(db(), COLLECTIONS.generations),
+        where("user_id", "==", user.uid),
+        limitQuery(40),
+      ),
+    );
+    return snapshot.docs
+      .map((entry) => toGenerationRecord(entry.id, entry.data()))
+      .filter((record) => record.code.length > 0)
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 20);
+  },
 
-      if (!snapshot.exists() || data?.last_reset_date !== today) {
-        const next = DAILY_GENERATION_LIMIT - 1;
-        tx.set(
-          ref,
-          {
-            email: user.email,
-            generations_left: next,
-            last_reset_date: today,
-            created_at: serverTimestamp(),
-          },
-          { merge: true },
-        );
-        return { allowed: true, quota: quotaFor(next) };
-      }
-
-      const storedLeft = typeof data?.generations_left === "number" ? data.generations_left : 0;
-      if (storedLeft <= 0) {
-        return { allowed: false, quota: quotaFor(0) };
-      }
-
-      const next = storedLeft - 1;
-      tx.update(ref, { generations_left: next, last_reset_date: today });
-      return { allowed: true, quota: quotaFor(next) };
+  async saveGeneration(user, { prompt, code }) {
+    const id = randomProjectId(20);
+    await setDoc(doc(db(), COLLECTIONS.generations, id), {
+      id,
+      user_id: user.uid,
+      prompt,
+      code,
+      published_id: null,
+      created_at: serverTimestamp(),
     });
+    return { id, prompt, code, createdAt: Date.now(), publishedId: null };
   },
 
-  async publish(user, code) {
+  async publish(user, { code, generationId }): Promise<PublishResult> {
     const id = randomProjectId(6);
     await setDoc(doc(db(), COLLECTIONS.projects, id), {
       id,
@@ -170,15 +203,17 @@ export const firebaseBackend: Backend = {
       code,
       created_at: serverTimestamp(),
     });
+
+    if (generationId) {
+      await updateDoc(doc(db(), COLLECTIONS.generations, generationId), {
+        published_id: id,
+        published_at: serverTimestamp(),
+      }).catch((error: unknown) => {
+        // The public link exists either way; history just stays unlabelled.
+        console.error("[openmi] could not mark the generation as published", error);
+      });
+    }
+
     return { id };
   },
 };
-
-/** Re-exported for the published viewer page's REST fallback. */
-export async function readProjectFromFirestore(id: string) {
-  const ref = doc(db(), COLLECTIONS.projects, id);
-  const snapshot = await getDoc(ref);
-  if (!snapshot.exists()) return null;
-  const data = snapshot.data();
-  return typeof data.code === "string" ? { code: data.code } : null;
-}

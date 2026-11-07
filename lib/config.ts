@@ -23,10 +23,12 @@ export const DAILY_GENERATION_LIMIT = 5;
 export const COLLECTIONS = {
   users: "users",
   projects: "projects",
+  generations: "generations",
 } as const;
 
 /** KV store keys used by the keyless demo backend. */
 export const DEMO_STORAGE_KEYS = {
   session: "openmi:demo:session",
   quota: "openmi:demo:quota",
+  history: "openmi:demo:history",
 } as const;

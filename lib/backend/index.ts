@@ -8,5 +8,12 @@ export function getBackend(): Backend {
   return isFirebaseConfigured ? firebaseBackend : demoBackend;
 }
 
-export type { Backend, ConsumeResult, PublishResult, Quota, SessionUser } from "./types";
+export type {
+  Backend,
+  ConsumeResult,
+  GenerationRecord,
+  PublishResult,
+  Quota,
+  SessionUser,
+} from "./types";
 export { todayKey } from "./types";

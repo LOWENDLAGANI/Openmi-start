@@ -1,9 +1,11 @@
 import { DAILY_GENERATION_LIMIT, DEMO_STORAGE_KEYS } from "@/lib/config";
 
 import {
+  randomProjectId,
   todayKey,
   type Backend,
   type ConsumeResult,
+  type GenerationRecord,
   type Quota,
   type SessionUser,
 } from "./types";
@@ -13,24 +15,31 @@ const DEMO_USER: SessionUser = {
   email: "builder@openmi.demo",
   displayName: "Demo Builder",
   photoURL: null,
+  // Nothing to verify without an account system.
+  emailVerified: true,
 };
 
 type StoredQuota = { date: string; remaining: number };
 
-function readSession(): boolean {
-  if (typeof window === "undefined") return false;
+function storage(): Storage | null {
+  if (typeof window === "undefined") return null;
   try {
-    return window.localStorage.getItem(DEMO_STORAGE_KEYS.session) === "1";
+    return window.localStorage;
   } catch {
-    return false;
+    return null;
   }
 }
 
+function readSession(): boolean {
+  return storage()?.getItem(DEMO_STORAGE_KEYS.session) === "1";
+}
+
 function writeSession(signedIn: boolean): void {
-  if (typeof window === "undefined") return;
+  const store = storage();
+  if (!store) return;
   try {
-    if (signedIn) window.localStorage.setItem(DEMO_STORAGE_KEYS.session, "1");
-    else window.localStorage.removeItem(DEMO_STORAGE_KEYS.session);
+    if (signedIn) store.setItem(DEMO_STORAGE_KEYS.session, "1");
+    else store.removeItem(DEMO_STORAGE_KEYS.session);
   } catch {
     /* storage can be unavailable in private mode - demo stays session-only */
   }
@@ -38,11 +47,12 @@ function writeSession(signedIn: boolean): void {
 
 function readQuota(): Quota {
   const today = todayKey();
-  if (typeof window === "undefined") {
+  const store = storage();
+  if (!store) {
     return { remaining: DAILY_GENERATION_LIMIT, limit: DAILY_GENERATION_LIMIT, date: today };
   }
   try {
-    const raw = window.localStorage.getItem(DEMO_STORAGE_KEYS.quota);
+    const raw = store.getItem(DEMO_STORAGE_KEYS.quota);
     if (raw) {
       const parsed = JSON.parse(raw) as StoredQuota;
       if (parsed?.date === today && typeof parsed.remaining === "number") {
@@ -53,7 +63,7 @@ function readQuota(): Quota {
         };
       }
     }
-    window.localStorage.setItem(
+    store.setItem(
       DEMO_STORAGE_KEYS.quota,
       JSON.stringify({ date: today, remaining: DAILY_GENERATION_LIMIT } satisfies StoredQuota),
     );
@@ -64,9 +74,10 @@ function readQuota(): Quota {
 }
 
 function writeQuota(quota: Quota): void {
-  if (typeof window === "undefined") return;
+  const store = storage();
+  if (!store) return;
   try {
-    window.localStorage.setItem(
+    store.setItem(
       DEMO_STORAGE_KEYS.quota,
       JSON.stringify({ date: quota.date, remaining: quota.remaining } satisfies StoredQuota),
     );
@@ -75,9 +86,38 @@ function writeQuota(quota: Quota): void {
   }
 }
 
+function readHistory(): GenerationRecord[] {
+  const store = storage();
+  if (!store) return [];
+  try {
+    const raw = store.getItem(DEMO_STORAGE_KEYS.history);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((entry): entry is GenerationRecord => {
+        const record = entry as GenerationRecord | null;
+        return Boolean(record && typeof record.id === "string" && typeof record.code === "string");
+      })
+      .slice(0, 20);
+  } catch {
+    return [];
+  }
+}
+
+function writeHistory(records: GenerationRecord[]): void {
+  const store = storage();
+  if (!store) return;
+  try {
+    store.setItem(DEMO_STORAGE_KEYS.history, JSON.stringify(records.slice(0, 20)));
+  } catch {
+    /* ignore */
+  }
+}
+
 /**
- * Keyless mode: lets the builder, quota counter and live preview be tried
- * without any Firebase project. Nothing leaves the browser.
+ * Keyless mode: lets the builder, quota counter, live preview and build history
+ * be tried without any Firebase project. Nothing leaves the browser.
  */
 export const demoBackend: Backend = {
   mode: "demo",
@@ -119,6 +159,22 @@ export const demoBackend: Backend = {
     window.dispatchEvent(new Event("openmi:demo-change"));
   },
 
+  async sendPasswordReset() {
+    throw new Error("Password resets need Firebase. Add your Firebase keys to .env.local.");
+  },
+
+  async resendVerificationEmail() {
+    throw new Error("Email verification needs Firebase. Add your Firebase keys to .env.local.");
+  },
+
+  async refreshUser() {
+    return readSession() ? DEMO_USER : null;
+  },
+
+  async getIdToken() {
+    return null;
+  },
+
   async loadQuota() {
     return readQuota();
   },
@@ -129,6 +185,22 @@ export const demoBackend: Backend = {
     const next: Quota = { ...current, remaining: current.remaining - 1 };
     writeQuota(next);
     return { allowed: true, quota: next };
+  },
+
+  async listGenerations() {
+    return readHistory();
+  },
+
+  async saveGeneration(_user, { prompt, code }) {
+    const record: GenerationRecord = {
+      id: randomProjectId(12),
+      prompt,
+      code,
+      createdAt: Date.now(),
+      publishedId: null,
+    };
+    writeHistory([record, ...readHistory()]);
+    return record;
   },
 
   async publish() {
