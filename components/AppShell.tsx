@@ -1,13 +1,11 @@
 "use client";
 
-import type { AiStatus } from "@/lib/ai-config";
-
 import { useAuth } from "./AuthProvider";
 import { Builder } from "./Builder";
 import { Landing } from "./Landing";
 import { Logo } from "./Logo";
 
-export function AppShell({ ai, quotaServer }: { ai: AiStatus; quotaServer: boolean }) {
+export function AppShell({ quotaServer }: { quotaServer: boolean }) {
   const { ready, user } = useAuth();
 
   if (!ready) {
@@ -24,5 +22,5 @@ export function AppShell({ ai, quotaServer }: { ai: AiStatus; quotaServer: boole
     );
   }
 
-  return user ? <Builder ai={ai} quotaServer={quotaServer} /> : <Landing />;
+  return user ? <Builder quotaServer={quotaServer} /> : <Landing />;
 }

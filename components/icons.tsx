@@ -128,6 +128,41 @@ export function ExternalLinkIcon(props: Props) {
   );
 }
 
+export function ChevronDownIcon(props: Props) {
+  return (
+    <Svg {...props}>
+      <path d="m6 9 6 6 6-6" />
+    </Svg>
+  );
+}
+
+export function PanelLeftIcon(props: Props) {
+  return (
+    <Svg {...props}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M9 4v16" />
+    </Svg>
+  );
+}
+
+export function GlobeIcon(props: Props) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18" />
+      <path d="M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z" />
+    </Svg>
+  );
+}
+
+export function PlusIcon(props: Props) {
+  return (
+    <Svg {...props}>
+      <path d="M12 5v14M5 12h14" />
+    </Svg>
+  );
+}
+
 export function LayersIcon(props: Props) {
   return (
     <Svg {...props}>

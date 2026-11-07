@@ -2,23 +2,21 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { AiStatus } from "@/lib/ai-config";
 import type { ChatFile, ChatMessage, ChatRecord } from "@/lib/backend/types";
 import { chatTitle, randomProjectId } from "@/lib/backend/types";
 import { PROMPT_EXAMPLES } from "@/lib/prompts";
-import { isFirebaseConfigured, PENDING_PROMPT_KEY } from "@/lib/config";
+import { PENDING_PROMPT_KEY } from "@/lib/config";
 import { activeFilePath, bundleSize, parseFileBundle } from "@/lib/file-bundle";
 import { buildInlinePreview, formatBytesNumber } from "@/lib/preview-html";
 
 import { useAuth } from "./AuthProvider";
 import {
   ArrowRightIcon,
+  ChevronDownIcon,
   CopyIcon,
   ExternalLinkIcon,
-  LinkIcon,
   LoaderIcon,
-  LogOutIcon,
-  MailIcon,
+  PlusIcon,
 } from "./icons";
 import { Logo } from "./Logo";
 import { PreviewPane } from "./PreviewPane";
@@ -55,7 +53,7 @@ function relativeTime(timestamp: number): string {
   return `${Math.floor(diff / day)}d ago`;
 }
 
-export function Builder({ ai, quotaServer }: { ai: AiStatus; quotaServer: boolean }) {
+export function Builder({ quotaServer }: { quotaServer: boolean }) {
   const {
     user,
     quota,
@@ -72,8 +70,6 @@ export function Builder({ ai, quotaServer }: { ai: AiStatus; quotaServer: boolea
   } = useAuth();
   const { push } = useToast();
 
-  const setupIncomplete = mode === "demo" || !ai.configured;
-
   const [chatId, setChatId] = useState(() => randomProjectId(20));
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [files, setFiles] = useState<ChatFile[]>([]);
@@ -89,6 +85,7 @@ export function Builder({ ai, quotaServer }: { ai: AiStatus; quotaServer: boolea
 
   const abortRef = useRef<AbortController | null>(null);
   const threadRef = useRef<HTMLDivElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   const quotaLoaded = quota !== null;
   const remaining = quota?.remaining ?? 0;
@@ -98,6 +95,7 @@ export function Builder({ ai, quotaServer }: { ai: AiStatus; quotaServer: boolea
   const hasOutput = files.length > 0;
   const totalSize = useMemo(() => bundleSize(files), [files]);
   const remotePreview = quotaServer && hasOutput ? `/api/preview/${chatId}/` : null;
+  const currentChat = chats.find((chat) => chat.id === chatId);
 
   useEffect(() => {
     return () => abortRef.current?.abort();
@@ -120,6 +118,22 @@ export function Builder({ ai, quotaServer }: { ai: AiStatus; quotaServer: boolea
     const node = threadRef.current;
     if (node) node.scrollTop = node.scrollHeight;
   }, [messages, streaming]);
+
+  useEffect(() => {
+    if (!chatsOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) setChatsOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setChatsOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [chatsOpen]);
 
   const paintStream = useCallback((raw: string) => {
     const partial = parseFileBundle(raw);
@@ -181,21 +195,6 @@ export function Builder({ ai, quotaServer }: { ai: AiStatus; quotaServer: boolea
 
       if (!response.ok) throw new Error(await readErrorMessage(response));
       if (!response.body) throw new Error("The generator returned an empty stream.");
-
-      if (response.headers.get("x-openmi-generator") === "demo") {
-        push({
-          tone: "info",
-          title: "Demo generator",
-          description: "Add DEEPSEEK_API_KEY to stream real, researched designs.",
-        });
-      }
-      if (response.headers.get("x-openmi-research") === "grounded") {
-        push({
-          tone: "info",
-          title: "Researched the web",
-          description: "Live references and imagery were used for this build.",
-        });
-      }
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -295,6 +294,7 @@ export function Builder({ ai, quotaServer }: { ai: AiStatus; quotaServer: boolea
     messages,
     chatId,
     files,
+    entry,
     mode,
     chats,
     getIdToken,
@@ -317,23 +317,20 @@ export function Builder({ ai, quotaServer }: { ai: AiStatus; quotaServer: boolea
     setChatsOpen(false);
   }, []);
 
-  const openChat = useCallback(
-    (chat: ChatRecord) => {
-      abortRef.current?.abort();
-      setChatId(chat.id);
-      setMessages(chat.messages);
-      setFiles(chat.files);
-      setEntry(chat.entry);
-      setLiveHtml(chat.files.length ? buildInlinePreview({ entry: chat.entry, files: chat.files }) : null);
-      setPublished(
-        chat.publishedId
-          ? { id: chat.publishedId, url: `${window.location.origin}/p/${chat.publishedId}` }
-          : null,
-      );
-      setChatsOpen(false);
-    },
-    [],
-  );
+  const openChat = useCallback((chat: ChatRecord) => {
+    abortRef.current?.abort();
+    setChatId(chat.id);
+    setMessages(chat.messages);
+    setFiles(chat.files);
+    setEntry(chat.entry);
+    setLiveHtml(chat.files.length ? buildInlinePreview({ entry: chat.entry, files: chat.files }) : null);
+    setPublished(
+      chat.publishedId
+        ? { id: chat.publishedId, url: `${window.location.origin}/p/${chat.publishedId}` }
+        : null,
+    );
+    setChatsOpen(false);
+  }, []);
 
   const handlePublish = useCallback(async () => {
     if (!hasOutput || streaming || publishing) return;
@@ -408,135 +405,103 @@ export function Builder({ ai, quotaServer }: { ai: AiStatus; quotaServer: boolea
   );
 
   return (
-    <div className="flex min-h-dvh flex-col bg-paper lg:h-dvh lg:overflow-hidden">
-      <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-line px-4 sm:px-6">
-        <div className="flex min-w-0 items-center gap-3">
-          <Logo />
-          <span className="hidden h-4 w-px bg-line sm:block" />
-          <span className="eyebrow hidden sm:block">Build chat</span>
-          <span
-            title={
-              setupIncomplete
-                ? "Demo mode — no Firebase / AI keys in this deployment"
-                : `${ai.label} · ${ai.model}${ai.research ? " · research on" : ""}`
-            }
-            className={`shrink-0 border px-2 py-1 font-mono text-[9px] uppercase tracking-[0.16em] ${
-              setupIncomplete
-                ? "border-brand/30 bg-brand-tint text-brand-deep"
-                : "border-line bg-sand text-inkSoft"
-            }`}
-          >
-            {setupIncomplete ? "Setup" : ai.label}
-          </span>
-          {ai.research ? (
-            <span className="hidden shrink-0 border border-line bg-paperAlt px-2 py-1 font-mono text-[9px] uppercase tracking-[0.16em] text-inkSoft sm:inline">
-              Research
-            </span>
-          ) : null}
+    <div className="relative flex min-h-dvh flex-col bg-[#0B0B0D] text-white/90 lg:h-dvh lg:overflow-hidden">
+      {/* ------------------------------------------------------------- header */}
+      <header className="relative z-20 flex h-12 shrink-0 items-center gap-2 border-b border-white/10 px-2 sm:px-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <Logo href="/" showWordmark={false} size="sm" />
+          <span className="h-4 w-px shrink-0 bg-white/10" />
+          <div className="relative min-w-0" ref={menuRef}>
+            <button
+              type="button"
+              onClick={() => setChatsOpen((open) => !open)}
+              aria-expanded={chatsOpen}
+              className="group flex min-w-0 max-w-[46vw] items-center gap-1.5 rounded-md px-1.5 py-1 text-[13px] font-medium text-white/85 transition-colors hover:bg-white/[0.06] sm:max-w-[280px]"
+            >
+              <span className="truncate">{currentChat?.title ?? "New build"}</span>
+              <ChevronDownIcon className="h-3.5 w-3.5 shrink-0 text-white/40 transition-transform group-hover:text-white/70" />
+            </button>
+
+            {chatsOpen ? (
+              <div className="absolute left-0 top-9 z-30 w-[290px] overflow-hidden rounded-xl border border-white/12 bg-[#15151A] shadow-[0_24px_60px_-20px_rgba(0,0,0,0.9)]">
+                <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
+                  <span className="text-[11px] font-medium text-white/70">
+                    Projects{chats.length ? ` · ${chats.length}` : ""}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={startNewChat}
+                    className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-white/55 transition-colors hover:bg-white/10 hover:text-white"
+                  >
+                    <PlusIcon className="h-3 w-3" />
+                    New
+                  </button>
+                </div>
+                {chats.length === 0 ? (
+                  <p className="px-3 py-4 text-[11.5px] leading-relaxed text-white/40">
+                    No saved builds yet. Every chat you start shows up here.
+                  </p>
+                ) : (
+                  <ul className="max-h-72 overflow-y-auto p-1.5">
+                    {chats.map((chat) => (
+                      <li key={chat.id}>
+                        <button
+                          type="button"
+                          onClick={() => openChat(chat)}
+                          className={`w-full rounded-lg px-2 py-1.5 text-left transition-colors ${
+                            chat.id === chatId ? "bg-white/10" : "hover:bg-white/[0.06]"
+                          }`}
+                        >
+                          <span className="block truncate text-[12.5px] text-white/85">{chat.title}</span>
+                          <span className="mt-0.5 block text-[10px] text-white/35">
+                            {relativeTime(chat.updatedAt)} · {chat.files.length} files
+                            {chat.publishedId ? " · published" : ""}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : null}
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button type="button" onClick={startNewChat} className="btn-quiet h-9 px-3 text-xs">
-            New chat
-          </button>
+        <div className="flex items-center justify-end gap-1.5">
           <button
             type="button"
             onClick={() => void handlePublish()}
             disabled={!hasOutput || streaming || publishing}
-            className="btn-primary h-9 px-3.5 text-xs"
             title={hasOutput ? "Publish this project" : "Build something first"}
+            className={`flex h-8 items-center gap-1.5 rounded-full px-3.5 text-[12px] font-medium transition-colors ${
+              !hasOutput || streaming || publishing
+                ? "cursor-not-allowed bg-white/10 text-white/30"
+                : "bg-[#EDEDF0] text-[#0B0B0D] hover:bg-white"
+            }`}
           >
-            {publishing ? (
-              <LoaderIcon className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <LinkIcon className="h-3.5 w-3.5" />
-            )}
+            {publishing ? <LoaderIcon className="h-3.5 w-3.5 animate-spin" /> : null}
             {publishing ? "Publishing" : "Publish"}
           </button>
-          <span className="hidden h-4 w-px bg-line sm:block" />
           <button
             type="button"
             onClick={() => void signOutUser()}
-            className="group flex items-center gap-2 rounded-full border border-line bg-paperAlt py-1 pl-1 pr-2.5 transition-colors hover:border-ink"
             title="Sign out"
+            className="group grid h-8 w-8 place-items-center rounded-full transition-colors hover:bg-white/10"
           >
             <Avatar name={profileName} photoURL={user?.photoURL ?? null} />
-            <LogOutIcon className="h-3.5 w-3.5 text-inkSoft transition-colors group-hover:text-ink" />
           </button>
         </div>
       </header>
 
-      <div className="grid flex-1 grid-cols-1 lg:min-h-0 lg:grid-cols-[430px_1fr] lg:overflow-hidden">
-        {/* ---------------------------------------------------- chat column */}
-        <aside className="flex min-h-0 flex-col border-line bg-paperAlt lg:overflow-hidden lg:border-r">
-          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-line px-4 py-3">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-ink">
-                {chats.find((chat) => chat.id === chatId)?.title ?? "New build"}
-              </p>
-              <p className="truncate font-mono text-[10px] uppercase tracking-[0.1em] text-inkSoft">
-                {user?.email ?? "Local demo session"}
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="text-right">
-                <span className="block font-mono text-[9px] uppercase tracking-[0.12em] text-inkSoft">
-                  Left today
-                </span>
-                <span className={`display text-xl leading-none ${outOfCredits ? "text-brand" : "text-ink"}`}>
-                  {quotaLoaded ? remaining : "—"}
-                  <span className="font-mono text-[10px] text-inkSoft">/{limit}</span>
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setChatsOpen((open) => !open)}
-                aria-expanded={chatsOpen}
-                className="btn-quiet h-8 px-3 text-[11px]"
-              >
-                Chats {chats.length ? `(${chats.length})` : ""}
-              </button>
-            </div>
-          </div>
-
-          {chatsOpen ? (
-            <div className="shrink-0 border-b border-line bg-paper p-2">
-              {chats.length === 0 ? (
-                <p className="p-2 text-[11px] leading-relaxed text-inkSoft">
-                  No saved builds yet. Every chat you start is stored here.
-                </p>
-              ) : (
-                <ul className="max-h-56 space-y-1 overflow-y-auto">
-                  {chats.map((chat) => (
-                    <li key={chat.id}>
-                      <button
-                        type="button"
-                        onClick={() => openChat(chat)}
-                        className={`w-full border p-2 text-left transition-colors ${
-                          chat.id === chatId
-                            ? "border-ink bg-paperAlt"
-                            : "border-transparent hover:border-line hover:bg-paperAlt"
-                        }`}
-                      >
-                        <span className="block truncate text-[12px] text-ink">{chat.title}</span>
-                        <span className="mt-0.5 block font-mono text-[9px] uppercase tracking-[0.1em] text-inkSoft">
-                          {relativeTime(chat.updatedAt)} · {chat.files.length} files
-                          {chat.publishedId ? " · published" : ""}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          ) : null}
-
-          <div ref={threadRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
+      <div className="grid flex-1 grid-cols-1 lg:min-h-0 lg:grid-cols-[minmax(360px,42%)_1fr] lg:overflow-hidden">
+        {/* ------------------------------------------------------- chat column */}
+        <aside className="flex min-h-0 flex-col lg:overflow-hidden lg:border-r lg:border-white/10">
+          <div ref={threadRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-4 sm:px-4">
             {messages.length === 0 ? (
               <div className="space-y-3">
-                <p className="text-[13px] leading-relaxed text-inkSoft">
-                  Describe the site you want. You&apos;ll get a small multi-file project — pages, CSS
-                  and JS — streaming into the canvas. Then keep chatting to change it.
+                <p className="max-w-[38ch] text-[13px] leading-relaxed text-white/55">
+                  Describe the site you want. A small multi-file project — pages, CSS and JS — streams
+                  into the canvas. Then keep chatting to change it.
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {PROMPT_EXAMPLES.map((example) => (
@@ -544,7 +509,7 @@ export function Builder({ ai, quotaServer }: { ai: AiStatus; quotaServer: boolea
                       key={example}
                       type="button"
                       onClick={() => setInput(example)}
-                      className="chip text-left"
+                      className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-left text-[11px] text-white/60 transition-colors hover:border-white/25 hover:bg-white/[0.08] hover:text-white"
                     >
                       {example}
                     </button>
@@ -552,48 +517,50 @@ export function Builder({ ai, quotaServer }: { ai: AiStatus; quotaServer: boolea
                 </div>
               </div>
             ) : (
-              messages.map((message, index) => (
-                <div
-                  key={`${message.at}-${index}`}
-                  className={message.role === "user" ? "flex justify-end" : "flex justify-start"}
-                >
-                  {message.role === "user" ? (
-                    <p className="max-w-[92%] whitespace-pre-wrap border border-ink bg-ink px-3 py-2 text-[12.5px] leading-relaxed text-paper">
-                      {message.content}
-                    </p>
-                  ) : (
-                    <div className="max-w-[92%] border border-line bg-paper px-3 py-2">
-                      <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-inkSoft">
-                        Openmi
+              messages.map((message, index) => {
+                const isUser = message.role === "user";
+                const pending = !isUser && !message.content && streaming && index === messages.length - 1;
+
+                return (
+                  <div key={`${message.at}-${index}`} className={isUser ? "flex justify-end" : "flex gap-2.5"}>
+                    {!isUser ? (
+                      <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.06]">
+                        <span className="h-1.5 w-1.5 rounded-full bg-[#F43E01]" />
                       </span>
-                      <p className="mt-1 whitespace-pre-wrap text-[12px] leading-relaxed text-ink">
-                        {message.content ||
-                          (streaming && index === messages.length - 1
-                            ? activeFile
-                              ? `Writing ${activeFile}…`
-                              : "Thinking…"
-                            : "")}
+                    ) : null}
+                    {isUser ? (
+                      <p className="max-w-[88%] whitespace-pre-wrap rounded-2xl border border-white/[0.07] bg-[#1B1B20] px-3.5 py-2 text-[13px] leading-relaxed text-white/85">
+                        {message.content}
                       </p>
-                    </div>
-                  )}
-                </div>
-              ))
+                    ) : (
+                      <p className="min-w-0 flex-1 whitespace-pre-wrap pt-0.5 text-[13px] leading-relaxed text-white/75">
+                        {pending ? (
+                          <span className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-white/40">
+                            <LoaderIcon className="h-3 w-3 animate-spin" />
+                            {activeFile ? `Writing ${activeFile}` : "Thinking"}
+                          </span>
+                        ) : (
+                          message.content
+                        )}
+                      </p>
+                    )}
+                  </div>
+                );
+              })
             )}
           </div>
 
-          {user && !user.emailVerified ? (
-            <div className="shrink-0 border-t border-line bg-brand-tint/40 px-4 py-2.5">
-              <div className="flex items-center justify-between gap-2">
-                <span className="flex min-w-0 items-center gap-2 text-[11px] text-ink">
-                  <MailIcon className="h-3.5 w-3.5 shrink-0 text-brand-deep" />
-                  <span className="truncate">Verify {user.email}</span>
-                </span>
-                <div className="flex shrink-0 items-center gap-1">
+          {/* ---------------------------------------------------- composer */}
+          <div className="shrink-0 px-3 pb-3 pt-1 sm:px-4">
+            {user && !user.emailVerified ? (
+              <div className="mb-2 flex items-center justify-between gap-2 rounded-lg border border-white/10 px-2.5 py-1.5">
+                <span className="truncate text-[11px] text-white/45">Verify {user.email}</span>
+                <span className="flex shrink-0 items-center gap-2">
                   <button
                     type="button"
                     onClick={() => void handleResendVerification()}
                     disabled={verifying}
-                    className="btn-quiet h-7 px-2 text-[10px]"
+                    className="text-[11px] text-white/55 underline decoration-white/20 underline-offset-2 transition-colors hover:text-white disabled:opacity-50"
                   >
                     Resend
                   </button>
@@ -601,28 +568,26 @@ export function Builder({ ai, quotaServer }: { ai: AiStatus; quotaServer: boolea
                     type="button"
                     onClick={() => void handleCheckedVerification()}
                     disabled={verifying}
-                    className="btn-outline h-7 px-2 text-[10px]"
+                    className="text-[11px] text-white/80 underline decoration-white/30 underline-offset-2 transition-colors hover:text-white disabled:opacity-50"
                   >
-                    {verifying ? "…" : "Verified"}
+                    {verifying ? "Checking…" : "I've verified"}
                   </button>
-                </div>
+                </span>
               </div>
-            </div>
-          ) : null}
+            ) : null}
 
-          <div className="shrink-0 border-t border-line p-3">
             <form
               onSubmit={(event) => {
                 event.preventDefault();
                 void send();
               }}
-              className="border border-line bg-paper p-2"
+              className="rounded-[20px] border border-white/12 bg-[#151518] p-2 transition-colors focus-within:border-white/25"
             >
               <textarea
                 id="chat-input"
                 value={input}
                 maxLength={MAX_MESSAGE_LENGTH}
-                rows={3}
+                rows={2}
                 onChange={(event) => setInput(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey) {
@@ -630,34 +595,51 @@ export function Builder({ ai, quotaServer }: { ai: AiStatus; quotaServer: boolea
                     void send();
                   }
                 }}
-                placeholder="Describe a site, or tell Openmi what to change…"
-                className="w-full resize-none border-0 bg-transparent px-1 py-1 text-[12.5px] leading-relaxed text-ink outline-none placeholder:text-inkSoft/70"
+                placeholder="Ask Openmi to build a landing page for…"
+                className="w-full resize-none border-0 bg-transparent px-1.5 py-1 text-[13px] leading-relaxed text-white/90 outline-none placeholder:text-white/30"
               />
-              <div className="mt-1 flex items-center justify-between gap-2">
-                <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-inkSoft">
-                  {streaming ? "Generating…" : "Enter sends · Shift+Enter newline"}
+              <div className="mt-1 flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={startNewChat}
+                  title="New project"
+                  className="grid h-7 w-7 place-items-center rounded-full border border-white/12 text-white/50 transition-colors hover:border-white/25 hover:text-white"
+                >
+                  <PlusIcon className="h-3.5 w-3.5" />
+                </button>
+                <span className="truncate pl-1 text-[11px] text-white/35">
+                  {quotaLoaded ? `${remaining} of ${limit} builds left today` : "Checking credits…"}
                 </span>
-                <button type="submit" disabled={!canSend} className="btn-primary h-9 px-3 text-xs">
+                <span className="flex-1" />
+                <button
+                  type="submit"
+                  disabled={!canSend}
+                  title={outOfCredits ? "Daily limit reached" : "Send"}
+                  className={`grid h-7 w-7 place-items-center rounded-full transition-colors ${
+                    canSend
+                      ? "bg-[#EDEDF0] text-[#0B0B0D] hover:bg-white"
+                      : "cursor-not-allowed bg-white/10 text-white/30"
+                  }`}
+                >
                   {streaming ? (
                     <LoaderIcon className="h-3.5 w-3.5 animate-spin" />
                   ) : (
                     <ArrowRightIcon className="h-3.5 w-3.5" />
                   )}
-                  {streaming ? "Writing" : "Send"}
                 </button>
               </div>
             </form>
 
             {outOfCredits ? (
-              <p className="mt-2 border border-brand/30 bg-brand-tint p-2 text-[10.5px] leading-relaxed text-brand-deep">
-                All {limit} generations used today. The counter resets at midnight UTC; you can still
-                publish what you have.
+              <p className="mt-2 px-1 text-[11px] leading-relaxed text-white/40">
+                All {limit} builds used today. The counter resets at midnight UTC; you can still publish
+                what you have.
               </p>
             ) : null}
 
             {published ? (
-              <div className="mt-2 flex items-center gap-2 border border-line bg-paper px-2.5 py-1.5">
-                <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-inkSoft">
+              <div className="mt-2 flex items-center gap-1.5 px-1">
+                <span className="min-w-0 flex-1 truncate font-mono text-[10.5px] text-white/40">
                   {published.url}
                 </span>
                 <button
@@ -668,8 +650,8 @@ export function Builder({ ai, quotaServer }: { ai: AiStatus; quotaServer: boolea
                       .then(() => push({ tone: "success", title: "Link copied" }))
                       .catch(() => push({ tone: "error", title: "Copy failed", description: published.url }));
                   }}
-                  className="btn-quiet h-7 px-2"
                   title="Copy link"
+                  className="grid h-6 w-6 place-items-center rounded-md text-white/45 transition-colors hover:bg-white/10 hover:text-white"
                 >
                   <CopyIcon className="h-3.5 w-3.5" />
                 </button>
@@ -677,128 +659,40 @@ export function Builder({ ai, quotaServer }: { ai: AiStatus; quotaServer: boolea
                   href={published.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="btn-quiet h-7 px-2"
                   title="Open published page"
+                  className="grid h-6 w-6 place-items-center rounded-md text-white/45 transition-colors hover:bg-white/10 hover:text-white"
                 >
                   <ExternalLinkIcon className="h-3.5 w-3.5" />
                 </a>
               </div>
             ) : null}
-
-            {setupIncomplete ? (
-              <SetupNotice firebaseReady={isFirebaseConfigured} ai={ai} quotaServer={quotaServer} />
-            ) : null}
           </div>
         </aside>
 
-        {/* ------------------------------------------------------- preview */}
+        {/* ----------------------------------------------------------- preview */}
         <PreviewPane
           html={liveHtml}
           src={remotePreview}
           streaming={streaming}
           files={files.map((file) => file.path)}
           size={totalSize}
-          className="min-h-[440px] lg:min-h-0"
+          shareUrl={published?.url ?? null}
+          className="m-2 min-h-[360px] sm:m-3 lg:min-h-0"
         />
       </div>
     </div>
   );
 }
 
-function SetupNotice({
-  firebaseReady,
-  ai,
-  quotaServer,
-}: {
-  firebaseReady: boolean;
-  ai: AiStatus;
-  quotaServer: boolean;
-}) {
-  const rows = [
-    {
-      ok: firebaseReady,
-      label: "Firebase",
-      env: "NEXT_PUBLIC_FIREBASE_*",
-      note: "Accounts, chats, quotas and /p/ links",
-    },
-    {
-      ok: ai.configured,
-      label: ai.configured ? ai.label : "AI provider",
-      env: "DEEPSEEK_API_KEY",
-      note: ai.configured ? `${ai.label} · ${ai.model}` : "Without a key, previews use the placeholder",
-    },
-    {
-      ok: quotaServer,
-      label: "Server quota + files",
-      env: "FIREBASE_SERVICE_ACCOUNT_KEY",
-      note: "Charges a credit after success and stores projects in Storage",
-    },
-    {
-      ok: ai.research,
-      label: "Live research",
-      env: "EXA_API_KEY",
-      note: ai.research ? "Web search grounds every build" : "Optional: adds live references and imagery",
-    },
-  ];
-
-  return (
-    <div className="mt-2 border border-brand/20 bg-brand-tint/40 p-2.5">
-      <span className="eyebrow flex items-center gap-2 text-brand-deep">
-        <span className="h-1.5 w-1.5 rounded-full bg-brand" />
-        Setup needed
-      </span>
-      <ul className="mt-2 space-y-1.5">
-        {rows.map((row) => (
-          <li key={row.env} className="flex gap-2">
-            <span
-              className={`mt-0.5 grid h-3 w-3 shrink-0 place-items-center border font-mono text-[8px] leading-none ${
-                row.ok ? "border-ink bg-ink text-paper" : "border-line bg-paperAlt text-transparent"
-              }`}
-              aria-hidden="true"
-            >
-              ✓
-            </span>
-            <span className="min-w-0">
-              <span className="block font-mono text-[9px] uppercase tracking-[0.12em] text-ink">
-                {row.label}
-              </span>
-              <span className="block break-all font-mono text-[9px] leading-relaxed text-inkSoft">
-                {row.env} · {row.note}
-              </span>
-            </span>
-          </li>
-        ))}
-      </ul>
-      <p className="mt-2 font-mono text-[9px] text-inkSoft">README → Production checklist</p>
-    </div>
-  );
-}
-
-function Avatar({
-  name,
-  photoURL,
-  large = false,
-}: {
-  name: string;
-  photoURL: string | null;
-  large?: boolean;
-}) {
-  const dimension = large ? "h-10 w-10 text-xs" : "h-6 w-6 text-[9px]";
+function Avatar({ name, photoURL }: { name: string; photoURL: string | null }) {
   if (photoURL) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={photoURL}
-        alt=""
-        referrerPolicy="no-referrer"
-        className={`${dimension} rounded-full border border-line object-cover`}
-      />
+      <img src={photoURL} alt="" referrerPolicy="no-referrer" className="h-6 w-6 rounded-full object-cover" />
     );
   }
   return (
-    <span
-      className={`grid ${dimension} shrink-0 place-items-center rounded-full bg-ink font-mono font-medium uppercase text-paper`}
-    >
+    <span className="grid h-6 w-6 place-items-center rounded-full bg-white/15 font-mono text-[9px] font-medium uppercase text-white">
       {initials(name, null)}
     </span>
   );

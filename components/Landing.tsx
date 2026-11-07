@@ -6,7 +6,7 @@ import { describeAuthError } from "@/lib/auth-errors";
 import { PENDING_PROMPT_KEY } from "@/lib/config";
 
 import { useAuth } from "./AuthProvider";
-import { ArrowRightIcon, GoogleIcon, LoaderIcon, LockIcon, MailIcon, SparklesIcon } from "./icons";
+import { ArrowRightIcon, GoogleIcon, LoaderIcon, LockIcon, MailIcon } from "./icons";
 import { Logo } from "./Logo";
 import { useToast } from "./Toast";
 
@@ -264,9 +264,8 @@ export function Landing() {
                 />
 
                 <div className="mt-2 flex items-end justify-between gap-3">
-                  <span className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.14em] text-inkSoft">
-                    <SparklesIcon className="h-3.5 w-3.5 text-brand" />
-                    {mode === "demo" ? "Demo generator" : "DeepSeek Flash"}
+                  <span className="pb-1 font-mono text-[9px] uppercase tracking-[0.14em] text-inkSoft/70">
+                    Enter to build
                   </span>
                   <button type="button" onClick={start} className="btn-primary h-10 shrink-0 px-4 text-[13px]">
                     Build
