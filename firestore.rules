@@ -1,0 +1,32 @@
+rules_version = '2';
+
+// Openmi security rules.
+// Deploy with:  firebase deploy --only firestore:rules
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Per-user quota document. Only the owner can read or write it.
+    match /users/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.generations_left is int;
+      allow update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.generations_left is int
+        && request.resource.data.generations_left >= 0
+        && request.resource.data.generations_left <= 5;
+      allow delete: if false;
+    }
+
+    // Published creations. Publicly readable, immutable once written.
+    match /projects/{projectId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.user_id == request.auth.uid
+        && request.resource.data.id == projectId
+        && request.resource.data.code is string
+        && request.resource.data.code.size() < 200000;
+      allow update, delete: if false;
+    }
+  }
+}
