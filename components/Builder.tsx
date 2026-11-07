@@ -53,10 +53,13 @@ export function Builder({ ai }: { ai: AiStatus }) {
   const abortRef = useRef<AbortController | null>(null);
 
   const streaming = status === "generating";
+  // `quota` is null between sign-in and the first Firestore read; treating that
+  // as 0 would flash the limit warning and show a false 0/5.
+  const quotaLoaded = quota !== null;
   const remaining = quota?.remaining ?? 0;
   const limit = quota?.limit ?? 5;
-  const outOfCredits = remaining <= 0;
-  const canGenerate = !streaming && !outOfCredits && prompt.trim().length >= 3;
+  const outOfCredits = quotaLoaded && remaining <= 0;
+  const canGenerate = !streaming && quotaLoaded && !outOfCredits && prompt.trim().length >= 3;
   const canPublish = Boolean(code) && !streaming && !publishing;
 
   useEffect(() => {
@@ -73,7 +76,7 @@ export function Builder({ ai }: { ai: AiStatus }) {
       });
       return;
     }
-    if (streaming) return;
+    if (streaming || !quotaLoaded) return;
     if (outOfCredits) {
       push({
         tone: "error",
@@ -129,7 +132,7 @@ export function Builder({ ai }: { ai: AiStatus }) {
         push({
           tone: "info",
           title: "Demo generator",
-          description: "Add OPENAI_API_KEY to .env.local to stream real AI designs.",
+          description: "Add DEEPSEEK_API_KEY to .env.local to stream real AI designs.",
         });
       }
 
@@ -180,7 +183,7 @@ export function Builder({ ai }: { ai: AiStatus }) {
       abortRef.current = null;
       setStatus("idle");
     }
-  }, [prompt, streaming, outOfCredits, limit, consume, push]);
+  }, [prompt, streaming, quotaLoaded, outOfCredits, limit, consume, push]);
 
   const handlePublish = useCallback(async () => {
     if (!canPublish) return;
@@ -287,7 +290,7 @@ export function Builder({ ai }: { ai: AiStatus }) {
             </div>
             <div className="mt-2 flex items-baseline gap-1.5">
               <span className={`display text-[2.75rem] leading-none ${outOfCredits ? "text-brand" : "text-ink"}`}>
-                {remaining}
+                {quotaLoaded ? remaining : "—"}
               </span>
               <span className="font-mono text-xs text-inkSoft">/ {limit}</span>
             </div>
