@@ -7,6 +7,7 @@ it to a permanent `openmi.app/p/<id>` link.
 - **Firebase Auth** (Google + email/password) and **Cloud Firestore** for quotas and published projects
 - **Zero-runtime preview**: generated code becomes a `Blob` URL inside a sandboxed `<iframe>`
 - **Streaming generation** from any OpenAI-compatible chat completions API
+- **Visual system**: warm cream canvas, charcoal ink and a single hot-orange accent, set in Space Grotesk + IBM Plex Mono (a groq.com-inspired editorial look). Tokens live in `tailwind.config.ts`, component classes in `app/globals.css`.
 
 ---
 

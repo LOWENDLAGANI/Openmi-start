@@ -15,83 +15,118 @@ function escapeHtml(value: string): string {
 function headline(prompt: string): string {
   const trimmed = prompt.trim().replace(/\s+/g, " ");
   if (!trimmed) return "Your interface, generated in seconds.";
-  return trimmed.length > 88 ? `${trimmed.slice(0, 88).trim()}…` : trimmed;
+  return trimmed.length > 84 ? `${trimmed.slice(0, 84).trim()}…` : trimmed;
 }
 
 export function buildDemoMarkup(prompt: string): string {
   const title = escapeHtml(headline(prompt));
 
-  return `<div class="relative min-h-screen overflow-hidden bg-slate-950 text-slate-100">
-  <div class="pointer-events-none absolute -top-48 left-1/2 h-[440px] w-[860px] -translate-x-1/2 rounded-full bg-emerald-500/20 blur-[130px]"></div>
-  <div class="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(148,163,184,0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgba(148,163,184,0.06)_1px,transparent_1px)] bg-[size:64px_64px] [mask-image:radial-gradient(ellipse_at_top,black,transparent_70%)]"></div>
-
-  <header class="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-    <div class="flex items-center gap-2.5">
-      <span class="grid h-9 w-9 place-items-center rounded-xl bg-emerald-400/15 text-emerald-300 ring-1 ring-inset ring-emerald-400/30">
-        <i data-lucide="sparkles" class="h-[18px] w-[18px]"></i>
-      </span>
-      <span class="text-sm font-semibold tracking-tight">Northwind Studio</span>
+  return `<div class="min-h-screen bg-[#F3F3EE] text-[#302B28]">
+  <header class="border-b border-[#CECEBF]">
+    <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+      <div class="flex items-center gap-3">
+        <span class="grid h-7 w-7 place-items-center rounded-[7px] bg-[#F43E01]">
+          <i data-lucide="box" class="h-4 w-4 text-[#302B28]"></i>
+        </span>
+        <span class="text-lg font-medium tracking-[-0.04em]">Northwind</span>
+        <span class="hidden h-4 w-px bg-[#CECEBF] sm:block"></span>
+        <span class="hidden font-mono text-[10px] uppercase tracking-[0.18em] text-[#69695D] sm:block">Platform</span>
+      </div>
+      <nav class="hidden items-center gap-6 font-mono text-[10px] uppercase tracking-[0.18em] text-[#69695D] md:flex">
+        <a href="#features" class="hover:text-[#302B28]">Features</a>
+        <a href="#numbers" class="hover:text-[#302B28]">Numbers</a>
+        <a href="#faq" class="hover:text-[#302B28]">FAQ</a>
+      </nav>
+      <button class="rounded-full bg-[#F43E01] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#C93300]">Get started</button>
     </div>
-    <nav class="hidden items-center gap-8 text-sm text-slate-400 md:flex">
-      <a href="#features" class="transition hover:text-white">Features</a>
-      <a href="#metrics" class="transition hover:text-white">Metrics</a>
-      <a href="#faq" class="transition hover:text-white">FAQ</a>
-    </nav>
-    <button class="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium transition hover:bg-white/10">Get started</button>
   </header>
 
-  <main class="relative z-10 mx-auto max-w-6xl px-6 pb-24">
-    <section class="pt-14 text-center sm:pt-24">
-      <span class="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-300">
-        <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400"></span>
-        Demo generation
-      </span>
-      <h1 class="mx-auto mt-6 max-w-3xl text-4xl font-semibold leading-[1.05] tracking-tight text-balance sm:text-6xl">${title}</h1>
-      <p class="mx-auto mt-5 max-w-xl text-base leading-relaxed text-slate-400">This placeholder was streamed by Openmi's demo generator. Add an <code class="rounded bg-white/10 px-1.5 py-0.5 text-[13px] text-emerald-300">OPENAI_API_KEY</code> to swap it for real, model-written interfaces.</p>
-      <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-        <button id="demo-cta" class="inline-flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-300 active:scale-[0.99]">
-          <i data-lucide="zap" class="h-4 w-4"></i>
-          <span id="demo-cta-label">Try the button</span>
-        </button>
-        <a href="#features" class="inline-flex items-center gap-2 rounded-xl border border-white/10 px-5 py-3 text-sm font-medium text-slate-300 transition hover:border-white/20 hover:text-white">
-          See how it works <i data-lucide="arrow-right" class="h-4 w-4"></i>
-        </a>
+  <main>
+    <section class="mx-auto max-w-6xl px-6 pb-16 pt-14 sm:pt-20">
+      <div class="grid items-start gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16">
+        <div>
+          <span class="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-[#69695D]">
+            <span class="h-1.5 w-1.5 rounded-full bg-[#F43E01]"></span>
+            Demo generation
+          </span>
+          <h1 class="mt-6 text-[clamp(2.4rem,6vw,4.4rem)] font-normal leading-[0.95] tracking-[-0.04em]">${title}</h1>
+          <p class="mt-6 max-w-[40ch] text-[15px] leading-relaxed text-[#69695D]">This placeholder was streamed by Openmi's demo generator. Add an <code class="rounded bg-[#E8E8DE] px-1.5 py-0.5 font-mono text-[12px] text-[#302B28]">OPENAI_API_KEY</code> to swap it for real, model-written interfaces.</p>
+          <div class="mt-8 flex flex-wrap items-center gap-3">
+            <button id="demo-cta" class="inline-flex items-center gap-2 rounded-full bg-[#F43E01] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#C93300]">
+              <i data-lucide="arrow-right" class="h-4 w-4"></i>
+              <span id="demo-cta-label">Try the button</span>
+            </button>
+            <a href="#features" class="inline-flex items-center gap-2 rounded-full border border-[#302B28] px-5 py-3 text-sm font-medium text-[#302B28] transition hover:bg-[#302B28] hover:text-[#F3F3EE]">See how it works</a>
+          </div>
+        </div>
+
+        <div class="border border-[#CECEBF] bg-[#FAFAF8] p-6">
+          <div class="flex items-center justify-between">
+            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-[#69695D]">Live throughput</p>
+            <span class="h-1.5 w-1.5 rounded-full bg-[#F43E01]"></span>
+          </div>
+          <p class="mt-4 text-5xl font-normal leading-none tracking-[-0.04em]">1,284</p>
+          <p class="mt-2 text-sm text-[#69695D]">tokens per second</p>
+          <div class="mt-6 flex items-end gap-1.5 border-t border-[#CECEBF] pt-5">
+            <span class="h-10 w-full bg-[#302B28]"></span>
+            <span class="h-16 w-full bg-[#302B28]"></span>
+            <span class="h-8 w-full bg-[#E8E8DE]"></span>
+            <span class="h-20 w-full bg-[#F43E01]"></span>
+            <span class="h-12 w-full bg-[#302B28]"></span>
+            <span class="h-14 w-full bg-[#302B28]"></span>
+          </div>
+          <p class="mt-3 font-mono text-[10px] uppercase tracking-[0.18em] text-[#69695D]">Last 6 minutes</p>
+        </div>
       </div>
     </section>
 
-    <section id="features" class="mt-20 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      <article class="rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition hover:border-emerald-400/30">
-        <span class="grid h-10 w-10 place-items-center rounded-xl bg-white/5 text-emerald-300"><i data-lucide="zap" class="h-5 w-5"></i></span>
-        <h2 class="mt-4 text-base font-semibold">Instant previews</h2>
-        <p class="mt-2 text-sm leading-relaxed text-slate-400">Every token lands in a sandboxed iframe the moment it arrives.</p>
-      </article>
-      <article class="rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition hover:border-emerald-400/30">
-        <span class="grid h-10 w-10 place-items-center rounded-xl bg-white/5 text-cyan-300"><i data-lucide="layout-dashboard" class="h-5 w-5"></i></span>
-        <h2 class="mt-4 text-base font-semibold">Real Tailwind</h2>
-        <p class="mt-2 text-sm leading-relaxed text-slate-400">Designs ship as plain HTML with the Tailwind CDN, ready to copy anywhere.</p>
-      </article>
-      <article class="rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition hover:border-emerald-400/30 sm:col-span-2 lg:col-span-1">
-        <span class="grid h-10 w-10 place-items-center rounded-xl bg-white/5 text-violet-300"><i data-lucide="share-2" class="h-5 w-5"></i></span>
-        <h2 class="mt-4 text-base font-semibold">Shareable links</h2>
-        <p class="mt-2 text-sm leading-relaxed text-slate-400">Publish to a permanent /p/ link that anyone can open.</p>
-      </article>
+    <section id="numbers" class="border-y border-[#CECEBF] bg-[#FAFAF8]">
+      <div class="mx-auto grid max-w-6xl grid-cols-2 divide-[#CECEBF] px-6 sm:grid-cols-4 sm:divide-x">
+        <div class="py-7 sm:px-6"><p class="font-mono text-[10px] uppercase tracking-[0.18em] text-[#69695D]">Latency</p><p class="mt-2 text-3xl tracking-[-0.04em]">&lt;1s</p></div>
+        <div class="py-7 sm:px-6"><p class="font-mono text-[10px] uppercase tracking-[0.18em] text-[#69695D]">Build steps</p><p class="mt-2 text-3xl tracking-[-0.04em]">00</p></div>
+        <div class="py-7 sm:px-6"><p class="font-mono text-[10px] uppercase tracking-[0.18em] text-[#69695D]">Free / day</p><p class="mt-2 text-3xl tracking-[-0.04em]">05</p></div>
+        <div class="py-7 sm:px-6"><p class="font-mono text-[10px] uppercase tracking-[0.18em] text-[#69695D]">Output</p><p class="mt-2 text-3xl tracking-[-0.04em]">1 file</p></div>
+      </div>
     </section>
 
-    <section id="metrics" class="mt-6 grid gap-6 rounded-3xl border border-white/10 bg-white/[0.03] p-8 sm:grid-cols-3">
-      <div>
-        <p class="text-3xl font-semibold tracking-tight">12s</p>
-        <p class="mt-1 text-sm text-slate-400">to a first draft</p>
+    <section id="features" class="mx-auto max-w-6xl px-6 py-16">
+      <div class="flex flex-wrap items-end justify-between gap-4 border-b border-[#CECEBF] pb-6">
+        <h2 class="text-[clamp(1.8rem,4vw,2.8rem)] font-normal leading-none tracking-[-0.04em]">Everything in one file.</h2>
+        <span class="font-mono text-[10px] uppercase tracking-[0.18em] text-[#69695D]">01 — 03</span>
       </div>
-      <div>
-        <p class="text-3xl font-semibold tracking-tight">5 / day</p>
-        <p class="mt-1 text-sm text-slate-400">free generations</p>
+      <div class="grid gap-px bg-[#CECEBF] sm:grid-cols-3">
+        <article class="bg-[#F3F3EE] py-7 sm:pr-6">
+          <span class="font-mono text-[10px] uppercase tracking-[0.18em] text-[#F43E01]">01</span>
+          <h3 class="mt-3 text-lg font-medium">Instant previews</h3>
+          <p class="mt-2 text-sm leading-relaxed text-[#69695D]">Every token lands in a sandboxed iframe the moment it arrives.</p>
+        </article>
+        <article class="bg-[#F3F3EE] py-7 sm:px-6">
+          <span class="font-mono text-[10px] uppercase tracking-[0.18em] text-[#F43E01]">02</span>
+          <h3 class="mt-3 text-lg font-medium">Real Tailwind</h3>
+          <p class="mt-2 text-sm leading-relaxed text-[#69695D]">Plain HTML with the Tailwind CDN, ready to copy anywhere.</p>
+        </article>
+        <article class="bg-[#F3F3EE] py-7 sm:pl-6">
+          <span class="font-mono text-[10px] uppercase tracking-[0.18em] text-[#F43E01]">03</span>
+          <h3 class="mt-3 text-lg font-medium">Shareable links</h3>
+          <p class="mt-2 text-sm leading-relaxed text-[#69695D]">Publish to a permanent /p/ link that anyone can open.</p>
+        </article>
       </div>
-      <div>
-        <p class="text-3xl font-semibold tracking-tight">0</p>
-        <p class="mt-1 text-sm text-slate-400">containers to run</p>
+    </section>
+
+    <section class="bg-[#F43E01] text-white">
+      <div class="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-14 lg:flex-row lg:items-end lg:justify-between">
+        <h2 class="max-w-[16ch] text-[clamp(2rem,5vw,3.6rem)] font-normal leading-[0.95] tracking-[-0.04em]">Prompt in. Interface out.</h2>
+        <a href="#top" class="inline-flex w-fit items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-medium text-[#302B28]">Start building <i data-lucide="arrow-right" class="h-4 w-4"></i></a>
       </div>
     </section>
   </main>
+
+  <footer class="border-t border-[#CECEBF]">
+    <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-6 font-mono text-[10px] uppercase tracking-[0.18em] text-[#69695D]">
+      <span>Northwind Studio</span>
+      <span>Demo output · Openmi</span>
+    </div>
+  </footer>
 </div>
 
 <script>

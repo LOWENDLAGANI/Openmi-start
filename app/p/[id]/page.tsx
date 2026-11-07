@@ -97,7 +97,7 @@ export default async function PublishedProjectPage({ params }: PageProps) {
   }
 
   return (
-    <main className="fixed inset-0 bg-slate-950">
+    <main className="fixed inset-0 bg-paper">
       <iframe
         title={`Openmi project ${id}`}
         srcDoc={buildPreviewDocument(project.code)}
@@ -106,10 +106,10 @@ export default async function PublishedProjectPage({ params }: PageProps) {
       />
       <Link
         href="/"
-        className="fixed bottom-4 right-4 z-10 inline-flex items-center gap-2 rounded-full border border-white/15 bg-slate-950/85 px-3.5 py-2 text-xs font-medium text-slate-300 shadow-lg shadow-black/40 backdrop-blur transition hover:border-emerald-400/40 hover:text-white"
+        className="fixed bottom-4 right-4 z-10 inline-flex items-center gap-2 rounded-full bg-ink px-3.5 py-2 text-[11px] font-medium tracking-[0.02em] text-paper shadow-sm transition-colors hover:bg-brand hover:text-white"
       >
-        <span className="grid h-4 w-4 place-items-center rounded-full bg-gradient-to-br from-emerald-300 to-teal-500 text-[9px] font-bold text-emerald-950">
-          o
+        <span className="grid h-3.5 w-3.5 place-items-center rounded-[3px] bg-brand">
+          <span className="h-1 w-1 bg-ink" />
         </span>
         Made with Openmi
       </Link>
@@ -119,18 +119,16 @@ export default async function PublishedProjectPage({ params }: PageProps) {
 
 function MessagePage({ title, body }: { title: string; body: string }) {
   return (
-    <main className="relative grid min-h-dvh place-items-center overflow-hidden bg-slate-950 px-6">
-      <div className="pointer-events-none absolute -top-40 left-1/2 h-[420px] w-[720px] -translate-x-1/2 rounded-full bg-emerald-500/10 blur-[120px]" />
-      <div className="relative w-full max-w-md rounded-3xl border border-white/10 bg-slate-900/60 p-8 text-center shadow-2xl shadow-black/40 backdrop-blur">
-        <div className="flex justify-center">
-          <Logo href={null} />
-        </div>
-        <h1 className="mt-6 text-xl font-semibold tracking-tight text-white">{title}</h1>
-        <p className="mt-2.5 text-sm leading-relaxed text-slate-400">{body}</p>
-        <Link
-          href="/"
-          className="focus-ring mt-6 inline-flex items-center justify-center rounded-xl bg-emerald-400 px-4 py-2.5 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-300"
-        >
+    <main className="grid min-h-dvh place-items-center bg-paper px-5 py-16">
+      <div className="w-full max-w-lg border border-line bg-paperAlt p-8 sm:p-10">
+        <Logo href={null} />
+        <span className="eyebrow mt-7 flex items-center gap-2">
+          <span className="h-1.5 w-1.5 rounded-full bg-brand" />
+          Shared link
+        </span>
+        <h1 className="display mt-4 text-[clamp(1.8rem,4vw,2.6rem)]">{title}</h1>
+        <p className="mt-4 text-sm leading-relaxed text-inkSoft">{body}</p>
+        <Link href="/" className="btn-primary mt-7 h-11 px-5">
           Build something with Openmi
         </Link>
       </div>

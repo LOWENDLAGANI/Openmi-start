@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 html,
@@ -12,17 +12,17 @@ body {
 }
 
 body {
-  @apply bg-slate-950 text-slate-100 antialiased;
+  @apply bg-paper text-ink antialiased;
 }
 
 ::selection {
-  background: rgba(52, 211, 153, 0.3);
-  color: #ecfdf5;
+  background: #f43e01;
+  color: #ffffff;
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+  scrollbar-color: #cecebf transparent;
 }
 
 *::-webkit-scrollbar {
@@ -31,32 +31,67 @@ body {
 }
 
 *::-webkit-scrollbar-thumb {
-  background-color: rgba(148, 163, 184, 0.28);
-  border-radius: 9999px;
+  background-color: #cecebf;
+  border-radius: 0;
   border: 3px solid transparent;
   background-clip: content-box;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(148, 163, 184, 0.45);
+  background-color: #69695d;
 }
 
-@layer utilities {
-  .text-gradient {
-    @apply bg-gradient-to-br from-white via-white to-emerald-300/80 bg-clip-text text-transparent;
+@layer components {
+  /* Uppercase monospace label — the technical voice of the design system. */
+  .eyebrow {
+    @apply font-mono text-[10px] font-medium uppercase leading-none tracking-[0.18em] text-inkSoft;
   }
 
-  .surface {
-    @apply rounded-2xl border border-white/10 bg-white/[0.03];
+  /* Oversized editorial display type: light weight, tightly tracked. */
+  .display {
+    @apply font-sans font-normal leading-[0.95] tracking-[-0.035em] text-ink;
   }
 
-  .focus-ring {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950;
+  .panel {
+    @apply border border-line bg-paperAlt;
+  }
+
+  .panel-white {
+    @apply border border-line bg-white;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-2 focus-visible:ring-offset-paper disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply btn bg-brand text-white hover:bg-brand-deep disabled:bg-sand disabled:text-inkSoft;
+  }
+
+  .btn-outline {
+    @apply btn border border-ink bg-transparent text-ink hover:bg-ink hover:text-paper disabled:border-line disabled:text-inkSoft disabled:hover:bg-transparent disabled:hover:text-inkSoft;
+  }
+
+  .btn-quiet {
+    @apply btn border border-line bg-paperAlt text-ink hover:border-ink disabled:text-inkSoft;
+  }
+
+  .field {
+    @apply w-full rounded-lg border border-line bg-paper px-3.5 py-3 text-sm text-ink placeholder:text-inkSoft/70 focus:border-ink focus:outline-none;
+  }
+
+  .chip {
+    @apply inline-flex max-w-full items-center gap-1.5 truncate rounded-full border border-line px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-inkSoft transition-colors hover:border-brand hover:text-brand;
+  }
+
+  .stat-value {
+    @apply font-sans text-[clamp(2rem,3.4vw,3.25rem)] font-normal leading-none tracking-[-0.04em] text-ink;
   }
 }
 
-/* Subtle dotted grid used on the marketing / empty states. */
-.bg-dotgrid {
-  background-image: radial-gradient(rgba(148, 163, 184, 0.16) 1px, transparent 1px);
-  background-size: 22px 22px;
+/* Faint technical grid used behind preview and empty states. */
+.bg-grid {
+  background-image: linear-gradient(to right, rgba(48, 43, 40, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(48, 43, 40, 0.06) 1px, transparent 1px);
+  background-size: 32px 32px;
 }

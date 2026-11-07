@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { buildPreviewDocument, formatBytes } from "@/lib/preview-html";
 
-import { ArrowRightIcon, LayersIcon, MonitorIcon, RefreshIcon, SmartphoneIcon } from "./icons";
+import { LayersIcon, MonitorIcon, RefreshIcon, SmartphoneIcon } from "./icons";
 
 type Viewport = "desktop" | "mobile";
 
@@ -59,36 +59,40 @@ export function PreviewPane({
       title="Openmi live preview"
       src={blobUrl ?? undefined}
       sandbox="allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-downloads"
-      className="h-full w-full border-0 bg-slate-950"
+      className="h-full w-full border-0 bg-white"
     />
   ) : null;
 
   return (
     <section
-      className={`surface flex flex-col overflow-hidden lg:min-h-0 ${className}`}
+      className={`flex min-h-0 flex-col border border-line bg-paperAlt ${className}`}
       aria-label="Live preview"
     >
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-3 py-2">
-        <div className="flex min-w-0 items-center gap-2 text-xs text-slate-500">
+      <div className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-line px-3 sm:px-4">
+        <div className="flex min-w-0 items-center gap-2">
           <span
             className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-              streaming ? "animate-pulse bg-amber-400" : hasCode ? "bg-emerald-400" : "bg-slate-600"
+              streaming ? "animate-pulse bg-brand" : hasCode ? "bg-ink" : "bg-line"
             }`}
           />
-          <span className="truncate">
-            {streaming ? "Streaming preview…" : hasCode ? `Live preview · ${formatBytes(code)}` : "No preview yet"}
+          <span className="eyebrow truncate">
+            {streaming
+              ? "Streaming"
+              : hasCode
+                ? `Live preview · ${formatBytes(code)}`
+                : "Live preview · empty"}
           </span>
         </div>
 
-        <div className="flex items-center gap-1.5">
-          <div className="flex items-center gap-0.5 rounded-lg border border-white/10 bg-white/[0.03] p-0.5">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center rounded-full border border-line bg-paper p-0.5">
             <button
               type="button"
               onClick={() => setViewport("desktop")}
               aria-pressed={viewport === "desktop"}
               title="Desktop viewport"
-              className={`focus-ring flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium transition ${
-                viewport === "desktop" ? "bg-white/10 text-white" : "text-slate-500 hover:text-slate-300"
+              className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] transition-colors ${
+                viewport === "desktop" ? "bg-ink text-paper" : "text-inkSoft hover:text-ink"
               }`}
             >
               <MonitorIcon className="h-3.5 w-3.5" />
@@ -99,8 +103,8 @@ export function PreviewPane({
               onClick={() => setViewport("mobile")}
               aria-pressed={viewport === "mobile"}
               title="Mobile viewport"
-              className={`focus-ring flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium transition ${
-                viewport === "mobile" ? "bg-white/10 text-white" : "text-slate-500 hover:text-slate-300"
+              className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] transition-colors ${
+                viewport === "mobile" ? "bg-ink text-paper" : "text-inkSoft hover:text-ink"
               }`}
             >
               <SmartphoneIcon className="h-3.5 w-3.5" />
@@ -113,24 +117,28 @@ export function PreviewPane({
             onClick={() => setReloadToken((token) => token + 1)}
             disabled={!hasCode}
             title="Reload preview"
-            className="focus-ring rounded-lg border border-white/10 bg-white/[0.03] p-1.5 text-slate-400 transition hover:border-white/20 hover:text-white disabled:opacity-40"
+            className="rounded-full border border-line bg-paper p-1.5 text-inkSoft transition-colors hover:border-ink hover:text-ink disabled:opacity-40"
           >
             <RefreshIcon className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
 
-      <div className="relative flex-1 overflow-hidden bg-slate-950">
+      <div className="relative flex-1 overflow-hidden bg-paper">
+        <div className="pointer-events-none absolute inset-0 bg-grid opacity-40" />
+
         {hasCode ? (
           viewport === "desktop" ? (
-            <div className="h-full w-full bg-slate-950">{iframe}</div>
+            <div className="relative h-full p-3 sm:p-5">
+              <BrowserFrame>{iframe}</BrowserFrame>
+            </div>
           ) : (
-            <div className="flex h-full w-full items-center justify-center bg-[#050914] p-4">
-              <div className="flex h-full w-full max-w-[390px] flex-col overflow-hidden rounded-[2rem] border border-white/15 bg-slate-900 p-2 shadow-2xl shadow-black/60">
-                <div className="flex justify-center pb-2 pt-1">
-                  <span className="h-1 w-14 rounded-full bg-white/20" />
+            <div className="relative flex h-full items-center justify-center p-4">
+              <div className="flex h-full w-full max-w-[366px] flex-col overflow-hidden rounded-[26px] border border-line bg-paperAlt p-1.5">
+                <div className="flex justify-center pb-1.5 pt-1">
+                  <span className="h-1 w-12 rounded-full bg-line" />
                 </div>
-                <div className="flex-1 overflow-hidden rounded-[1.5rem] bg-slate-950">{iframe}</div>
+                <div className="flex-1 overflow-hidden rounded-[19px] border border-line bg-white">{iframe}</div>
               </div>
             </div>
           )
@@ -141,8 +149,8 @@ export function PreviewPane({
         )}
 
         {streaming ? (
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-0.5 overflow-hidden bg-white/5">
-            <div className="h-full w-1/3 animate-shimmer bg-gradient-to-r from-transparent via-emerald-400 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] overflow-hidden bg-sand">
+            <div className="h-full w-1/3 animate-sweep bg-brand" />
           </div>
         ) : null}
       </div>
@@ -150,23 +158,44 @@ export function PreviewPane({
   );
 }
 
+function BrowserFrame({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex h-full flex-col overflow-hidden border border-line bg-white">
+      <div className="flex h-8 shrink-0 items-center gap-3 border-b border-line bg-paperAlt px-3">
+        <div className="flex items-center gap-1.5">
+          <span className="h-1.5 w-1.5 rounded-full bg-line" />
+          <span className="h-1.5 w-1.5 rounded-full bg-line" />
+          <span className="h-1.5 w-1.5 rounded-full bg-line" />
+        </div>
+        <span className="hidden font-mono text-[10px] uppercase tracking-[0.14em] text-inkSoft sm:block">
+          preview.openmi.local
+        </span>
+        <span className="ml-auto h-1.5 w-1.5 rounded-full bg-brand" />
+      </div>
+      <div className="min-h-0 flex-1 bg-white">{children}</div>
+    </div>
+  );
+}
+
 function EmptyState() {
   return (
-    <div className="relative flex h-full flex-col items-center justify-center gap-4 overflow-hidden px-6 text-center">
-      <div className="pointer-events-none absolute inset-0 bg-dotgrid opacity-30" />
-      <div className="relative grid h-12 w-12 place-items-center rounded-2xl border border-white/10 bg-white/[0.03] text-emerald-300">
-        <LayersIcon className="h-6 w-6" />
-      </div>
-      <div className="relative max-w-sm">
-        <p className="text-sm font-medium text-slate-200">Your canvas is empty</p>
-        <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
-          Describe an interface on the left and hit Generate. Tokens stream straight into this frame
-          — no build step, no server render.
-        </p>
-      </div>
-      <div className="relative flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] text-slate-500">
-        <ArrowRightIcon className="h-3 w-3" />
-        Try “a pricing page for a video editor”
+    <div className="relative flex h-full flex-col justify-center px-6 py-10 sm:px-10">
+      <span className="eyebrow flex items-center gap-2">
+        <span className="h-1.5 w-1.5 rounded-full bg-brand" />
+        Canvas
+      </span>
+      <h2 className="display mt-5 max-w-[14ch] text-[clamp(1.9rem,3.6vw,2.9rem)]">
+        Nothing rendered yet.
+      </h2>
+      <p className="mt-4 max-w-[36ch] text-sm leading-relaxed text-inkSoft">
+        Describe an interface on the left and hit Generate. Tokens stream straight into this frame —
+        no build step, no server render.
+      </p>
+      <div className="mt-7 flex w-fit items-center gap-2 border border-line bg-paperAlt px-3 py-2">
+        <LayersIcon className="h-3.5 w-3.5 text-inkSoft" />
+        <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-inkSoft">
+          Try “a pricing page for a video editor”
+        </span>
       </div>
     </div>
   );
@@ -174,20 +203,20 @@ function EmptyState() {
 
 function GeneratingState() {
   return (
-    <div className="flex h-full flex-col justify-center gap-4 px-8 py-10">
-      <div className="flex items-center gap-2 text-xs text-emerald-300">
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
-        Streaming the first tokens…
-      </div>
-      <div className="space-y-3">
-        <div className="h-3 w-2/5 animate-pulse rounded-full bg-white/10" />
-        <div className="h-8 w-4/5 animate-pulse rounded-lg bg-white/[0.07]" />
-        <div className="h-3 w-3/5 animate-pulse rounded-full bg-white/[0.06]" />
+    <div className="relative flex h-full flex-col justify-center px-6 py-10 sm:px-10">
+      <span className="eyebrow flex items-center gap-2">
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand" />
+        Streaming the first tokens
+      </span>
+      <div className="mt-6 max-w-xl space-y-3">
+        <div className="h-2.5 w-2/5 animate-pulse bg-line" />
+        <div className="h-9 w-4/5 animate-pulse bg-sand" />
+        <div className="h-2.5 w-3/5 animate-pulse bg-line" />
         <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
           {[0, 1, 2].map((index) => (
             <div
               key={index}
-              className="h-24 animate-pulse rounded-xl border border-white/5 bg-white/[0.03]"
+              className="h-20 animate-pulse border border-line bg-paperAlt"
               style={{ animationDelay: `${index * 120}ms` }}
             />
           ))}

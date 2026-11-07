@@ -9,26 +9,20 @@ export function Logo({
   showWordmark?: boolean;
   size?: "sm" | "md";
 }) {
-  const box = size === "sm" ? "h-8 w-8 rounded-lg" : "h-9 w-9 rounded-xl";
-  const icon = size === "sm" ? "h-4 w-4" : "h-[18px] w-[18px]";
+  const box = size === "sm" ? "h-6 w-6 rounded-[6px]" : "h-7 w-7 rounded-[7px]";
+  const glyph = size === "sm" ? "h-3.5 w-3.5" : "h-4 w-4";
 
   const content = (
-    <span className="flex items-center gap-2.5">
-      <span
-        className={`relative grid ${box} place-items-center overflow-hidden bg-gradient-to-br from-emerald-300 to-teal-500 text-emerald-950 shadow-glow`}
-      >
-        <svg viewBox="0 0 24 24" fill="none" className={icon} aria-hidden="true">
-          <path
-            d="M12 3.2l1.9 4.7 4.7 1.9-4.7 1.9L12 16.4l-1.9-4.7L5.4 9.8l4.7-1.9L12 3.2z"
-            fill="currentColor"
-          />
-          <path d="M17.8 15.2l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9.9-2.1z" fill="currentColor" opacity="0.7" />
+    <span className="flex items-center gap-2">
+      <span className={`grid ${box} place-items-center bg-brand`}>
+        <svg viewBox="0 0 24 24" className={glyph} fill="none" aria-hidden="true">
+          <path d="M5 8h6v3H5z" fill="#302B28" />
+          <path d="M13 8h6v3h-6z" fill="#302B28" opacity="0.55" />
+          <path d="M5 13h14v3H5z" fill="#302B28" />
         </svg>
       </span>
       {showWordmark ? (
-        <span className="text-[17px] font-semibold tracking-tight text-white">
-          open<span className="text-emerald-300">mi</span>
-        </span>
+        <span className="text-[19px] font-medium tracking-[-0.05em] text-ink">openmi</span>
       ) : null}
     </span>
   );
@@ -36,7 +30,7 @@ export function Logo({
   if (!href) return content;
 
   return (
-    <Link href={href} className="focus-ring rounded-xl" aria-label="Openmi home">
+    <Link href={href} className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40" aria-label="Openmi home">
       {content}
     </Link>
   );

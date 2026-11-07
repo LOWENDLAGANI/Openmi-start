@@ -5,22 +5,32 @@ import { useState } from "react";
 import { describeAuthError } from "@/lib/auth-errors";
 
 import { useAuth } from "./AuthProvider";
-import { ArrowRightIcon, GoogleIcon, LoaderIcon, LockIcon, MailIcon, SparklesIcon } from "./icons";
+import { ArrowRightIcon, GoogleIcon, LoaderIcon, LockIcon, MailIcon } from "./icons";
 import { Logo } from "./Logo";
 import { useToast } from "./Toast";
 
-const FEATURES = [
+const STATS = [
+  { value: "05", label: "Generations", note: "Free, every day" },
+  { value: "00", label: "Build steps", note: "Runs straight in the browser" },
+  { value: "<1s", label: "First pixels", note: "Streamed into the preview" },
+  { value: "6", label: "Char links", note: "Permanent /p/ share pages" },
+];
+
+const STEPS = [
   {
-    title: "Prompt to pixels in seconds",
-    body: "Describe a screen. Tokens stream straight into a sandboxed preview, so the layout builds itself while you watch.",
+    number: "01",
+    title: "Sign in",
+    body: "Google or email. Your quota and published work are tied to your account, five generations a day.",
   },
   {
-    title: "Real HTML + Tailwind",
-    body: "Every generation is a single, self-contained file with the Tailwind CDN — no build step, no black box.",
+    number: "02",
+    title: "Describe the screen",
+    body: "A sentence is enough. Openmi streams a single self-contained HTML page with Tailwind as it writes.",
   },
   {
-    title: "Publish with one click",
-    body: "Freeze a design into a permanent /p/ link you can send to a client, a teammate or your future self.",
+    number: "03",
+    title: "Publish it",
+    body: "Freeze the design into a six-character link anyone can open. No containers, no build chain, no billing.",
   },
 ];
 
@@ -60,64 +70,91 @@ export function Landing() {
   }
 
   return (
-    <main className="relative min-h-dvh overflow-hidden bg-slate-950">
-      {/* ambient background */}
-      <div className="pointer-events-none absolute -top-52 left-1/2 h-[520px] w-[980px] -translate-x-1/2 rounded-full bg-emerald-500/15 blur-[140px]" />
-      <div className="pointer-events-none absolute inset-0 bg-dotgrid opacity-40 [mask-image:radial-gradient(ellipse_at_top,black,transparent_65%)]" />
+    <main className="min-h-dvh bg-paper text-ink">
+      <header className="sticky top-0 z-30 border-b border-line bg-paper/95 backdrop-blur">
+        <div className="mx-auto flex h-16 max-w-[1240px] items-center justify-between gap-4 px-5 sm:px-8">
+          <div className="flex items-center gap-4">
+            <Logo />
+            <span className="hidden h-4 w-px bg-line sm:block" />
+            <span className="eyebrow hidden sm:block">AI front-end builder</span>
+          </div>
 
-      <div className="relative mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-6 py-6">
-        <header className="flex items-center justify-between">
-          <Logo />
-          <div className="flex items-center gap-3 text-xs text-slate-500">
-            <span className="hidden items-center gap-1.5 sm:flex">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              AI front-end builder
-            </span>
-            <a
-              href="#how"
-              className="focus-ring rounded-lg border border-white/10 px-3 py-1.5 text-slate-300 transition hover:border-white/20 hover:text-white"
-            >
+          <nav className="hidden items-center gap-7 md:flex">
+            <a href="#how" className="eyebrow transition-colors hover:text-ink">
               How it works
             </a>
-          </div>
-        </header>
+            <a href="#stack" className="eyebrow transition-colors hover:text-ink">
+              Stack
+            </a>
+          </nav>
 
-        <div className="grid flex-1 items-center gap-12 py-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 lg:py-16">
-          <section className="animate-fade-up">
-            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-300">
-              <SparklesIcon className="h-3.5 w-3.5" />
-              5 free generations every day
+          <div className="flex items-center gap-3">
+            <span className="eyebrow hidden items-center gap-2 sm:flex">
+              <span className="h-1.5 w-1.5 rounded-full bg-brand" />5 free / day
             </span>
-            <h1 className="mt-6 text-balance text-4xl font-semibold leading-[1.05] tracking-tight text-white sm:text-6xl">
+            <a href="#start" className="btn-primary h-9 px-4 text-[13px]">
+              Start building <ArrowRightIcon className="h-3.5 w-3.5" />
+            </a>
+          </div>
+        </div>
+      </header>
+
+      <section className="mx-auto max-w-[1240px] px-5 pb-14 pt-12 sm:px-8 sm:pb-20 sm:pt-16">
+        <div className="grid items-start gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
+          <div>
+            <span className="eyebrow flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-brand" />
+              Prompt to interface
+            </span>
+
+            <h1 className="display mt-6 text-[clamp(2.7rem,6.2vw,4.9rem)]">
               Describe it.
               <br />
-              <span className="text-gradient">Watch it ship.</span>
+              Watch it ship.
             </h1>
-            <p className="mt-6 max-w-lg text-pretty text-base leading-relaxed text-slate-400">
-              Openmi turns a sentence into a working interface. Prompt a landing page, a dashboard or
-              a pricing table, watch it render live, then publish a link in one click.
+
+            <p className="mt-6 max-w-[38ch] text-[15px] leading-relaxed text-inkSoft sm:text-base">
+              Openmi turns a sentence into a working interface. Prompt a landing page, a dashboard or a
+              pricing table, watch every token land in the preview, then publish a link in one click.
             </p>
 
-            <dl id="how" className="mt-10 grid gap-6 sm:grid-cols-3">
-              {FEATURES.map((feature) => (
-                <div key={feature.title}>
-                  <dt className="text-sm font-medium text-slate-200">{feature.title}</dt>
-                  <dd className="mt-1.5 text-xs leading-relaxed text-slate-500">{feature.body}</dd>
-                </div>
-              ))}
-            </dl>
-          </section>
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <a href="#start" className="btn-primary h-12 px-6">
+                Start building <ArrowRightIcon className="h-4 w-4" />
+              </a>
+              <a href="#how" className="btn-outline h-12 px-6">
+                See how it works
+              </a>
+            </div>
 
-          <section className="animate-fade-up lg:pl-4">
-            <div className="relative rounded-3xl border border-white/10 bg-slate-900/60 p-6 shadow-2xl shadow-black/40 backdrop-blur sm:p-8">
-              <div className="pointer-events-none absolute inset-x-10 -top-px h-px bg-gradient-to-r from-transparent via-emerald-400/60 to-transparent" />
+            <p className="eyebrow mt-7">No card · Single-file HTML · Runs in the browser</p>
+          </div>
 
-              <h2 className="text-lg font-semibold tracking-tight text-white">
-                {mode === "demo" ? "Try the builder" : tab === "signin" ? "Welcome back" : "Create your account"}
-              </h2>
-              <p className="mt-1.5 text-sm text-slate-400">
+          {/* Sign-in, framed as the hero media object. */}
+          <div id="start" className="panel-white">
+            <div className="flex items-center justify-between border-b border-line bg-paperAlt px-4 py-2.5">
+              <div className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-line" />
+                <span className="h-2 w-2 rounded-full bg-line" />
+                <span className="h-2 w-2 rounded-full bg-line" />
+              </div>
+              <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-inkSoft">
+                openmi / sign in
+              </span>
+              <span className="h-2 w-2 rounded-full bg-brand" />
+            </div>
+
+            <div className="p-6 sm:p-8">
+              <h2 className="text-xl font-medium tracking-[-0.02em] text-ink">
                 {mode === "demo"
-                  ? "Firebase isn't connected, so this runs in local demo mode."
+                  ? "Try the builder"
+                  : tab === "signin"
+                    ? "Welcome back"
+                    : "Create your account"}
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-inkSoft">
+                {mode === "demo"
+                  ? "No Firebase project attached, so this session runs in local demo mode."
                   : tab === "signin"
                     ? "Sign in to keep your generations and publish links."
                     : "Five free generations a day, no card required."}
@@ -129,17 +166,15 @@ export function Landing() {
                     type="button"
                     onClick={() => void run("google", signInWithGoogle)}
                     disabled={busy !== null}
-                    className="focus-ring flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-400 px-4 py-3 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-300 disabled:opacity-60"
+                    className="btn-primary h-11 w-full"
                   >
                     {busy ? <LoaderIcon className="h-4 w-4 animate-spin" /> : <ArrowRightIcon className="h-4 w-4" />}
                     Continue in demo mode
                   </button>
-                  <p className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs leading-relaxed text-slate-400">
-                    Generations stream from a built-in placeholder design and your quota is stored in
-                    this browser. Add Firebase keys plus{" "}
-                    <code className="rounded bg-white/10 px-1 py-0.5 text-[11px] text-emerald-300">OPENAI_API_KEY</code>{" "}
-                    to <code className="text-[11px] text-slate-300">.env.local</code> for real accounts,
-                    quota docs and shareable links.
+                  <p className="border border-line bg-paper p-3 font-mono text-[10px] leading-relaxed tracking-[0.02em] text-inkSoft">
+                    Placeholder designs stream from the server and quota lives in this browser. Add
+                    Firebase keys plus OPENAI_API_KEY to .env.local for real accounts, quota docs and
+                    shareable links.
                   </p>
                 </div>
               ) : (
@@ -148,27 +183,29 @@ export function Landing() {
                     type="button"
                     onClick={() => void run("google", signInWithGoogle)}
                     disabled={busy !== null}
-                    className="focus-ring mt-6 flex w-full items-center justify-center gap-2.5 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:opacity-60"
+                    className="btn-primary mt-6 h-11 w-full"
                   >
                     {busy === "google" ? (
-                      <LoaderIcon className="h-4 w-4 animate-spin text-slate-500" />
+                      <LoaderIcon className="h-4 w-4 animate-spin" />
                     ) : (
-                      <GoogleIcon className="h-4 w-4" />
+                      <span className="grid h-5 w-5 place-items-center rounded-full bg-white">
+                        <GoogleIcon className="h-3.5 w-3.5" />
+                      </span>
                     )}
                     Continue with Google
                   </button>
 
-                  <div className="my-5 flex items-center gap-3 text-[11px] uppercase tracking-widest text-slate-600">
-                    <span className="h-px flex-1 bg-white/10" />
-                    or
-                    <span className="h-px flex-1 bg-white/10" />
+                  <div className="my-5 flex items-center gap-3">
+                    <span className="h-px flex-1 bg-line" />
+                    <span className="eyebrow">or email</span>
+                    <span className="h-px flex-1 bg-line" />
                   </div>
 
                   <form onSubmit={handleSubmit} className="space-y-3">
                     <label className="block">
-                      <span className="sr-only">Email</span>
-                      <span className="relative block">
-                        <MailIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                      <span className="eyebrow">Email</span>
+                      <span className="relative mt-2 block">
+                        <MailIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-inkSoft" />
                         <input
                           type="email"
                           required
@@ -176,14 +213,14 @@ export function Landing() {
                           value={email}
                           onChange={(event) => setEmail(event.target.value)}
                           placeholder="you@company.com"
-                          className="focus-ring w-full rounded-xl border border-white/10 bg-slate-950/70 py-2.5 pl-9 pr-3 text-sm text-slate-100 placeholder:text-slate-600 focus:border-emerald-400/50 focus:outline-none"
+                          className="field pl-9"
                         />
                       </span>
                     </label>
                     <label className="block">
-                      <span className="sr-only">Password</span>
-                      <span className="relative block">
-                        <LockIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                      <span className="eyebrow">Password</span>
+                      <span className="relative mt-2 block">
+                        <LockIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-inkSoft" />
                         <input
                           type="password"
                           required
@@ -192,27 +229,23 @@ export function Landing() {
                           value={password}
                           onChange={(event) => setPassword(event.target.value)}
                           placeholder="At least 6 characters"
-                          className="focus-ring w-full rounded-xl border border-white/10 bg-slate-950/70 py-2.5 pl-9 pr-3 text-sm text-slate-100 placeholder:text-slate-600 focus:border-emerald-400/50 focus:outline-none"
+                          className="field pl-9"
                         />
                       </span>
                     </label>
 
-                    <button
-                      type="submit"
-                      disabled={busy !== null}
-                      className="focus-ring flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2.5 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-400/15 disabled:opacity-60"
-                    >
+                    <button type="submit" disabled={busy !== null} className="btn-outline h-11 w-full">
                       {busy === "email" ? <LoaderIcon className="h-4 w-4 animate-spin" /> : null}
                       {tab === "signin" ? "Sign in" : "Create account"}
                     </button>
                   </form>
 
-                  <p className="mt-4 text-center text-xs text-slate-500">
+                  <p className="mt-4 text-center text-xs text-inkSoft">
                     {tab === "signin" ? "New to Openmi?" : "Already have an account?"}{" "}
                     <button
                       type="button"
                       onClick={() => setTab(tab === "signin" ? "signup" : "signin")}
-                      className="font-medium text-emerald-300 underline-offset-4 hover:underline"
+                      className="font-medium text-ink underline decoration-brand decoration-2 underline-offset-4"
                     >
                       {tab === "signin" ? "Create an account" : "Sign in"}
                     </button>
@@ -220,14 +253,88 @@ export function Landing() {
                 </>
               )}
             </div>
-          </section>
+          </div>
+        </div>
+      </section>
+
+      <section aria-label="Product numbers" className="border-y border-line bg-paperAlt">
+        <dl className="mx-auto grid max-w-[1240px] grid-cols-2 divide-line px-5 sm:grid-cols-4 sm:divide-x sm:px-0">
+          {STATS.map((stat) => (
+            <div key={stat.label} className="border-b border-line py-7 sm:border-b-0 sm:px-7 sm:py-9">
+              <dt className="eyebrow">{stat.label}</dt>
+              <dd>
+                <p className="stat-value mt-3">{stat.value}</p>
+                <p className="mt-2 text-xs text-inkSoft">{stat.note}</p>
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+
+      <section id="how" className="mx-auto max-w-[1240px] px-5 py-16 sm:px-8 sm:py-24">
+        <div className="flex flex-wrap items-end justify-between gap-6 border-b border-line pb-8">
+          <h2 className="display max-w-[20ch] text-[clamp(2rem,4.4vw,3.5rem)]">
+            Three steps. No build chain.
+          </h2>
+          <span className="eyebrow">01 — 03</span>
         </div>
 
-        <footer className="flex flex-col items-start justify-between gap-2 border-t border-white/5 pt-5 text-xs text-slate-600 sm:flex-row sm:items-center">
-          <span>Openmi · single-file UIs, generated on demand.</span>
-          <span>Preview runs entirely in your browser.</span>
-        </footer>
-      </div>
+        <div className="grid bg-line sm:grid-cols-3 sm:gap-px">
+          {STEPS.map((step) => (
+            <article key={step.number} className="bg-paper px-1 py-8 sm:px-7">
+              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-brand">
+                {step.number}
+              </span>
+              <h3 className="mt-4 text-lg font-medium tracking-[-0.01em] text-ink">{step.title}</h3>
+              <p className="mt-2.5 text-sm leading-relaxed text-inkSoft">{step.body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section id="stack" className="mx-auto max-w-[1240px] px-5 pb-16 sm:px-8">
+        <div className="flex flex-wrap items-center gap-x-8 gap-y-3 border-t border-line pt-6">
+          <span className="eyebrow">Built on</span>
+          {["Next.js", "Firebase Auth", "Firestore", "Tailwind CDN", "Blob preview"].map((item) => (
+            <span key={item} className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink">
+              {item}
+            </span>
+          ))}
+        </div>
+      </section>
+
+      <section className="bg-brand text-white">
+        <div className="mx-auto flex max-w-[1240px] flex-col gap-8 px-5 py-14 sm:px-8 sm:py-20 lg:flex-row lg:items-end lg:justify-between">
+          <h2 className="display max-w-[16ch] text-[clamp(2.2rem,5vw,4.2rem)] text-white">
+            Prompt in.
+            <br />
+            Interface out.
+          </h2>
+          <div className="max-w-sm">
+            <p className="text-sm leading-relaxed text-white/85">
+              Five free generations every day. Sign in, describe the screen you need, and share it
+              before your coffee goes cold.
+            </p>
+            <a href="#start" className="btn mt-6 h-12 border border-white bg-white px-6 text-ink hover:bg-paper">
+              Start building <ArrowRightIcon className="h-4 w-4" />
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <footer className="border-t border-line">
+        <div className="mx-auto flex max-w-[1240px] flex-col gap-4 px-5 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+          <div className="flex items-center gap-4">
+            <Logo size="sm" />
+            <span className="h-3.5 w-px bg-line" />
+            <span className="eyebrow">Single-file UIs, generated on demand</span>
+          </div>
+          <div className="flex items-center gap-5">
+            <span className="eyebrow">Preview runs in your browser</span>
+            <span className="eyebrow">© {new Date().getFullYear()} Openmi</span>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }

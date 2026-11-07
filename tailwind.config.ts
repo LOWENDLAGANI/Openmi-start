@@ -4,41 +4,56 @@ const config: Config = {
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      colors: {
+        /** Warm cream page canvas. */
+        paper: "#F3F3EE",
+        /** Slightly brighter surface for panels. */
+        paperAlt: "#FAFAF8",
+        /** Recessed sand tone for wells and disabled fills. */
+        sand: "#E8E8DE",
+        /** Warm charcoal ink. */
+        ink: "#302B28",
+        /** Muted copy. */
+        inkSoft: "#69695D",
+        /** Hairline divider. */
+        line: "#CECEBF",
+        brand: {
+          DEFAULT: "#F43E01",
+          deep: "#C93300",
+          tint: "#FFF0EC",
+        },
+      },
       fontFamily: {
         sans: [
+          "Space Grotesk",
           "ui-sans-serif",
           "system-ui",
           "-apple-system",
-          "Segoe UI",
-          "Inter",
           "Helvetica Neue",
           "Arial",
           "sans-serif",
         ],
-        mono: ["ui-monospace", "SFMono-Regular", "Menlo", "Consolas", "monospace"],
+        mono: ["IBM Plex Mono", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+      },
+      borderRadius: {
+        card: "12px",
+      },
+      borderColor: {
+        DEFAULT: "#CECEBF",
       },
       keyframes: {
         "fade-up": {
-          from: { opacity: "0", transform: "translateY(8px)" },
+          from: { opacity: "0", transform: "translateY(6px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
-        shimmer: {
+        sweep: {
           "0%": { transform: "translateX(-100%)" },
           "100%": { transform: "translateX(100%)" },
         },
-        "pulse-ring": {
-          "0%": { boxShadow: "0 0 0 0 rgba(52, 211, 153, 0.35)" },
-          "70%": { boxShadow: "0 0 0 8px rgba(52, 211, 153, 0)" },
-          "100%": { boxShadow: "0 0 0 0 rgba(52, 211, 153, 0)" },
-        },
       },
       animation: {
-        "fade-up": "fade-up 0.4s ease-out both",
-        shimmer: "shimmer 1.6s ease-in-out infinite",
-        "pulse-ring": "pulse-ring 2s ease-out infinite",
-      },
-      boxShadow: {
-        glow: "0 0 40px -12px rgba(52, 211, 153, 0.45)",
+        "fade-up": "fade-up 0.35s ease-out both",
+        sweep: "sweep 1.4s ease-in-out infinite",
       },
     },
   },

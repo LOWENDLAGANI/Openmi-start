@@ -189,7 +189,12 @@ export function Builder() {
       setPublished({ id, url });
       try {
         await navigator.clipboard.writeText(url);
-        push({ tone: "success", title: "Published and copied", description: url, link: { label: "Open link", href: url } });
+        push({
+          tone: "success",
+          title: "Published and copied",
+          description: url,
+          link: { label: "Open link", href: url },
+        });
       } catch {
         push({
           tone: "success",
@@ -214,86 +219,82 @@ export function Builder() {
   );
 
   return (
-    <div className="flex min-h-dvh flex-col bg-slate-950 lg:h-dvh lg:overflow-hidden">
-      <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-white/10 px-4 sm:px-6">
-        <div className="flex items-center gap-3">
+    <div className="flex min-h-dvh flex-col bg-paper lg:h-dvh lg:overflow-hidden">
+      <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-line px-4 sm:px-6">
+        <div className="flex items-center gap-4">
           <Logo />
-          <span className="hidden rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.18em] text-slate-500 sm:inline-flex">
-            beta
-          </span>
+          <span className="hidden h-4 w-px bg-line sm:block" />
+          <span className="eyebrow hidden sm:block">Builder</span>
           {mode === "demo" ? (
-            <span className="rounded-full border border-amber-400/25 bg-amber-400/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.18em] text-amber-300">
-              demo
+            <span className="border border-line bg-sand px-2 py-1 font-mono text-[9px] uppercase tracking-[0.16em] text-inkSoft">
+              Demo
             </span>
           ) : null}
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-slate-400 sm:flex">
-            <span className={`h-1.5 w-1.5 rounded-full ${streaming ? "bg-amber-400" : "bg-emerald-400"}`} />
+          <span className="eyebrow hidden items-center gap-2 sm:flex">
+            <span className={`h-1.5 w-1.5 rounded-full ${streaming ? "animate-pulse bg-brand" : "bg-ink"}`} />
             {streaming ? "Generating" : "Ready"}
-          </div>
-          <div className="group relative">
-            <button
-              type="button"
-              onClick={() => void signOutUser()}
-              className="focus-ring flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] py-1.5 pl-1.5 pr-2.5 text-xs text-slate-300 transition hover:border-white/20 hover:text-white"
-              title="Sign out"
-            >
-              <Avatar name={profileName} photoURL={user?.photoURL ?? null} size="sm" />
-              <span className="hidden max-w-[130px] truncate sm:inline">{profileName}</span>
-              <LogOutIcon className="h-3.5 w-3.5 text-slate-500 group-hover:text-slate-300" />
-            </button>
-          </div>
+          </span>
+          <span className="hidden h-4 w-px bg-line sm:block" />
+          <button
+            type="button"
+            onClick={() => void signOutUser()}
+            className="group flex items-center gap-2 rounded-full border border-line bg-paperAlt py-1 pl-1 pr-2.5 transition-colors hover:border-ink"
+            title="Sign out"
+          >
+            <Avatar name={profileName} photoURL={user?.photoURL ?? null} />
+            <span className="hidden max-w-[120px] truncate font-mono text-[10px] uppercase tracking-[0.12em] text-ink sm:inline">
+              {profileName}
+            </span>
+            <LogOutIcon className="h-3.5 w-3.5 text-inkSoft transition-colors group-hover:text-ink" />
+          </button>
         </div>
       </header>
 
-      <div className="grid flex-1 grid-cols-1 gap-3 p-4 lg:grid-cols-[minmax(340px,400px)_1fr] lg:gap-6 lg:overflow-hidden lg:p-6">
+      <div className="grid flex-1 grid-cols-1 lg:grid-cols-[380px_1fr] lg:overflow-hidden">
         {/* ------------------------------------------------ left panel */}
-        <section className="flex flex-col gap-3 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
-          <div className="surface p-3.5">
+        <aside className="flex flex-col border-line bg-paperAlt lg:min-h-0 lg:overflow-y-auto lg:border-r">
+          <div className="border-b border-line p-5">
             <div className="flex items-center gap-3">
-              <Avatar name={profileName} photoURL={user?.photoURL ?? null} size="md" />
+              <Avatar name={profileName} photoURL={user?.photoURL ?? null} large />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-white">{profileName}</p>
-                <p className="truncate text-xs text-slate-500">{user?.email ?? "Local demo session"}</p>
+                <p className="truncate text-sm font-medium text-ink">{profileName}</p>
+                <p className="truncate font-mono text-[10px] uppercase tracking-[0.1em] text-inkSoft">
+                  {user?.email ?? "Local demo session"}
+                </p>
               </div>
             </div>
 
-            <div className="mt-3 rounded-xl border border-white/10 bg-slate-950/60 p-3">
-              <div className="flex items-baseline justify-between">
-                <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500">
-                  Daily generations
-                </span>
-                <span className={`text-sm font-semibold ${outOfCredits ? "text-rose-300" : "text-emerald-300"}`}>
-                  {remaining}
-                  <span className="text-slate-500"> / {limit}</span>
-                </span>
-              </div>
-              <div className="mt-2.5 flex gap-1.5">
-                {Array.from({ length: limit }).map((_, index) => (
-                  <span
-                    key={index}
-                    className={`h-1.5 flex-1 rounded-full transition-colors ${
-                      index < remaining ? "bg-emerald-400" : "bg-white/10"
-                    }`}
-                  />
-                ))}
-              </div>
-              <p className="mt-2 text-[11px] text-slate-500">
-                {outOfCredits
-                  ? "Limit reached — resets at midnight UTC."
-                  : `${remaining === limit ? limit : remaining} request${remaining === 1 ? "" : "s"} left today · resets midnight UTC`}
-              </p>
+            <div className="mt-5 flex items-end justify-between">
+              <span className="eyebrow">Generations left today</span>
+              <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-inkSoft">
+                00:00 UTC
+              </span>
+            </div>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className={`display text-[2.75rem] leading-none ${outOfCredits ? "text-brand" : "text-ink"}`}>
+                {remaining}
+              </span>
+              <span className="font-mono text-xs text-inkSoft">/ {limit}</span>
+            </div>
+            <div className="mt-3 flex gap-1">
+              {Array.from({ length: limit }).map((_, index) => (
+                <span
+                  key={index}
+                  className={`h-1 flex-1 ${index < remaining ? "bg-ink" : "bg-sand"}`}
+                />
+              ))}
             </div>
           </div>
 
-          <div className="surface p-3.5">
+          <div className="border-b border-line p-5">
             <div className="flex items-center justify-between">
-              <label htmlFor="prompt" className="text-sm font-medium text-white">
-                What do you want to build?
+              <label htmlFor="prompt" className="eyebrow">
+                01 / What do you want to build?
               </label>
-              <span className="text-[11px] tabular-nums text-slate-600">
+              <span className="font-mono text-[10px] tabular-nums text-inkSoft">
                 {prompt.length}/{MAX_PROMPT_LENGTH}
               </span>
             </div>
@@ -309,29 +310,27 @@ export function Builder() {
                   void generate();
                 }
               }}
-              placeholder="A landing page for a specialty coffee roaster, with a subscription form, three featured beans and a dark, warm palette…"
-              className="focus-ring mt-2.5 min-h-[104px] w-full resize-y rounded-xl border border-white/10 bg-slate-950/70 p-3 text-sm leading-relaxed text-slate-100 placeholder:text-slate-600 focus:border-emerald-400/40 focus:outline-none"
+              placeholder="A landing page for a specialty coffee roaster, with a subscription form, three featured beans and a warm palette…"
+              className="field mt-3 min-h-[104px] resize-y leading-relaxed"
             />
 
             <div className="mt-2.5 flex flex-wrap gap-1.5">
               {PROMPT_EXAMPLES.slice(0, 4).map((example) => (
-                <button
-                  key={example}
-                  type="button"
-                  onClick={() => setPrompt(example)}
-                  className="focus-ring max-w-full truncate rounded-lg border border-white/10 bg-white/[0.02] px-2 py-1 text-[11px] text-slate-400 transition hover:border-emerald-400/30 hover:text-emerald-200"
-                >
+                <button key={example} type="button" onClick={() => setPrompt(example)} className="chip">
                   {example}
                 </button>
               ))}
             </div>
+          </div>
 
+          <div className="border-b border-line p-5">
+            <span className="eyebrow">02 / Generate</span>
             <div className="mt-3 space-y-2">
               <button
                 type="button"
                 onClick={() => void generate()}
                 disabled={!canGenerate}
-                className="focus-ring flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-400 px-4 py-3 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-slate-500"
+                className="btn-primary h-12 w-full"
               >
                 {streaming ? (
                   <>
@@ -342,9 +341,7 @@ export function Builder() {
                   <>
                     <SparklesIcon className="h-4 w-4" />
                     Generate UI
-                    <kbd className="ml-1 hidden rounded border border-emerald-950/20 px-1.5 py-0.5 text-[10px] font-medium text-emerald-900/70 sm:inline">
-                      ⌘↵
-                    </kbd>
+                    <span className="ml-1 font-mono text-[10px] tracking-[0.1em] opacity-70">⌘↵</span>
                   </>
                 )}
               </button>
@@ -353,7 +350,7 @@ export function Builder() {
                 type="button"
                 onClick={() => void handlePublish()}
                 disabled={!canPublish}
-                className="focus-ring flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-medium text-slate-200 transition hover:border-white/20 hover:bg-white/[0.07] disabled:cursor-not-allowed disabled:text-slate-600"
+                className="btn-outline h-11 w-full"
               >
                 {publishing ? (
                   <>
@@ -370,7 +367,7 @@ export function Builder() {
             </div>
 
             {outOfCredits ? (
-              <p className="mt-3 rounded-lg border border-rose-400/20 bg-rose-400/5 p-2.5 text-[11px] leading-relaxed text-rose-200/80">
+              <p className="mt-3 border border-brand/30 bg-brand-tint p-2.5 text-[11px] leading-relaxed text-brand-deep">
                 You&apos;ve used all {limit} generations for today. The counter resets at midnight UTC;
                 you can still publish what you have.
               </p>
@@ -378,12 +375,12 @@ export function Builder() {
           </div>
 
           {published ? (
-            <div className="surface animate-fade-up p-4">
-              <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.14em] text-emerald-300">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                Published
-              </div>
-              <p className="mt-2 break-all font-mono text-[11px] leading-relaxed text-slate-400">
+            <div className="animate-fade-up border-b border-line p-5">
+              <span className="eyebrow flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-brand" />
+                Published link
+              </span>
+              <p className="mt-2 break-all font-mono text-[11px] leading-relaxed text-ink">
                 {published.url}
               </p>
               <div className="mt-3 flex items-center gap-2">
@@ -393,9 +390,15 @@ export function Builder() {
                     void navigator.clipboard
                       .writeText(published.url)
                       .then(() => push({ tone: "success", title: "Link copied" }))
-                      .catch(() => push({ tone: "error", title: "Copy failed", description: "Select the link above and copy it manually." }));
+                      .catch(() =>
+                        push({
+                          tone: "error",
+                          title: "Copy failed",
+                          description: "Select the link above and copy it manually.",
+                        }),
+                      );
                   }}
-                  className="focus-ring inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-slate-300 transition hover:border-white/20 hover:text-white"
+                  className="btn-quiet h-9 flex-1 text-xs"
                 >
                   <CopyIcon className="h-3.5 w-3.5" />
                   Copy
@@ -404,7 +407,7 @@ export function Builder() {
                   href={published.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="focus-ring inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-400 px-3 py-2 text-xs font-semibold text-emerald-950 transition hover:bg-emerald-300"
+                  className="btn-primary h-9 flex-1 text-xs"
                 >
                   <ExternalLinkIcon className="h-3.5 w-3.5" />
                   Open
@@ -413,15 +416,15 @@ export function Builder() {
             </div>
           ) : null}
 
-          <p className="pb-2 text-center text-[11px] leading-relaxed text-slate-600">
+          <p className="mt-auto p-5 font-mono text-[10px] leading-relaxed tracking-[0.02em] text-inkSoft">
             {mode === "demo"
-              ? "Demo mode: generations use a built-in template and quota lives in this browser."
-              : "Generated code is stored with your account. Publishing a link makes it public."}
+              ? "Demo mode: placeholder generations, quota stored in this browser."
+              : "Generated code is stored with your account. Publishing makes a link public."}
           </p>
-        </section>
+        </aside>
 
         {/* ------------------------------------------------ right panel */}
-        <PreviewPane code={code} streaming={streaming} className="min-h-[460px] lg:min-h-0" />
+        <PreviewPane code={code} streaming={streaming} className="min-h-[440px] lg:min-h-0" />
       </div>
     </div>
   );
@@ -430,13 +433,13 @@ export function Builder() {
 function Avatar({
   name,
   photoURL,
-  size,
+  large = false,
 }: {
   name: string;
   photoURL: string | null;
-  size: "sm" | "md";
+  large?: boolean;
 }) {
-  const dimension = size === "sm" ? "h-7 w-7 text-[10px]" : "h-10 w-10 text-xs";
+  const dimension = large ? "h-10 w-10 text-xs" : "h-6 w-6 text-[9px]";
   if (photoURL) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
@@ -444,16 +447,15 @@ function Avatar({
         src={photoURL}
         alt=""
         referrerPolicy="no-referrer"
-        className={`${dimension} rounded-full border border-white/15 object-cover`}
+        className={`${dimension} rounded-full border border-line object-cover`}
       />
     );
   }
   return (
     <span
-      className={`grid ${dimension} shrink-0 place-items-center rounded-full border border-emerald-400/25 bg-emerald-400/10 font-semibold text-emerald-200`}
+      className={`grid ${dimension} shrink-0 place-items-center rounded-full bg-ink font-mono font-medium uppercase text-paper`}
     >
       {initials(name, null)}
     </span>
   );
 }
-
