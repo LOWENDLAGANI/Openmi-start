@@ -268,6 +268,13 @@ export function Builder({ quotaServer }: { quotaServer: boolean }) {
         });
       } catch (error) {
         console.error("[openmi] could not save this chat", error);
+        // The canvas and the credit are already spent, so this must be visible:
+        // otherwise a rules/network problem silently loses the build.
+        push({
+          tone: "error",
+          title: "This build wasn't saved",
+          description: "The preview works, but it won't appear under Projects until the save succeeds.",
+        });
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
