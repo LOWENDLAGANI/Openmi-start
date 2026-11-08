@@ -43,7 +43,7 @@ service cloud.firestore {
         && resource.data.user_id == request.auth.uid
         && request.resource.data.user_id == request.auth.uid
         && request.resource.data.id == projectId;
-      allow delete: if false;
+      allow delete: if request.auth != null && resource.data.user_id == request.auth.uid;
     }
   }
 }

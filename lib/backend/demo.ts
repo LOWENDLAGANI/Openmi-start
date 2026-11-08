@@ -198,4 +198,10 @@ export const demoBackend: Backend = {
       "Publishing needs Firebase. Add your Firebase keys to .env.local to create shareable links.",
     );
   },
+
+  async unpublish() {
+    throw new Error(
+      "Publishing needs Firebase. Add your Firebase keys to .env.local to manage shareable links.",
+    );
+  },
 };

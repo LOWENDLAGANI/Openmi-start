@@ -30,6 +30,7 @@ type AuthContextValue = {
   /** Demo only: spends one browser-local credit after a successful run. */
   consume: () => Promise<boolean>;
   publish: (input: { chatId: string; entry: string; projectId?: string }) => Promise<PublishResult>;
+  unpublish: (projectId: string) => Promise<void>;
   saveChat: (chat: ChatRecord) => Promise<void>;
   refreshQuota: () => Promise<void>;
   refreshChats: () => Promise<void>;
@@ -143,6 +144,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [backend],
   );
 
+  const unpublish = useCallback(
+    async (projectId: string) => {
+      const current = userRef.current;
+      if (!current) throw new Error("Sign in before removing a published link.");
+      await backend.unpublish(current, projectId);
+    },
+    [backend],
+  );
+
   const refreshUser = useCallback(async () => {
     try {
       const next = await backend.refreshUser();
@@ -171,11 +181,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       getIdToken: () => backend.getIdToken(),
       consume,
       publish,
+      unpublish,
       saveChat,
       refreshQuota,
       refreshChats,
     }),
-    [ready, user, quota, chats, backend, consume, publish, saveChat, refreshQuota, refreshChats, refreshUser],
+    [
+      ready,
+      user,
+      quota,
+      chats,
+      backend,
+      consume,
+      publish,
+      unpublish,
+      saveChat,
+      refreshQuota,
+      refreshChats,
+      refreshUser,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

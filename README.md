@@ -105,7 +105,7 @@ continues unchanged. Only the returned image URLs are embedded in generated page
    optional `FIREBASE_STORAGE_BUCKET`.
 2. **Authorized domain** for auth, and **Storage** enabled in the same project.
 3. **Firestore rules** deployed. `users/*` is read-only to its owner; `chats/*` is private;
-   published `projects/*` are public-read and owner-updatable, so republishing keeps one stable link.
+   published `projects/*` are public-read and owner-managed: republishing keeps one stable link, and the owner can delete a link to take it offline.
 4. **Build once per environment**: `NEXT_PUBLIC_*` is inlined at build time; server values are read
    per request.
 5. **Smoke test**: sign up, verify, build a site, send a correction, publish, open `/p/<id>` in a

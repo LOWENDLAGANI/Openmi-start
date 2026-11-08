@@ -173,6 +173,17 @@ export function DownloadIcon(props: Props) {
   );
 }
 
+export function TrashIcon(props: Props) {
+  return (
+    <Svg {...props}>
+      <path d="M4 7h16" />
+      <path d="M9.5 7V5.5A1.5 1.5 0 0 1 11 4h2a1.5 1.5 0 0 1 1.5 1.5V7" />
+      <path d="M6.5 7l.8 12.1A1.5 1.5 0 0 0 8.8 20.5h6.4a1.5 1.5 0 0 0 1.5-1.4L17.5 7" />
+      <path d="M10.5 11v5.5M13.5 11v5.5" />
+    </Svg>
+  );
+}
+
 export function LayersIcon(props: Props) {
   return (
     <Svg {...props}>

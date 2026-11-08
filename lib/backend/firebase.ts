@@ -15,6 +15,7 @@ import {
 } from "firebase/auth";
 import {
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -254,5 +255,11 @@ export const firebaseBackend: Backend = {
       throw withRulesHint(error);
     });
     return { id };
+  },
+
+  async unpublish(_user, projectId) {
+    await deleteDoc(doc(db(), COLLECTIONS.projects, projectId)).catch((error: unknown) => {
+      throw withRulesHint(error);
+    });
   },
 };

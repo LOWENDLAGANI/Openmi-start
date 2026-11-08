@@ -84,6 +84,8 @@ export interface Backend {
     user: SessionUser,
     input: { chatId: string; entry: string; projectId?: string },
   ): Promise<PublishResult>;
+  /** Removes a published link for good. Only its owner can. */
+  unpublish(user: SessionUser, projectId: string): Promise<void>;
 }
 
 /** UTC day key: quota windows roll over at midnight UTC. */

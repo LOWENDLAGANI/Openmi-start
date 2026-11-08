@@ -19,6 +19,7 @@ import {
   ExternalLinkIcon,
   LoaderIcon,
   PlusIcon,
+  TrashIcon,
 } from "./icons";
 import { Logo } from "./Logo";
 import { PreviewPane } from "./PreviewPane";
@@ -63,6 +64,7 @@ export function Builder({ quotaServer }: { quotaServer: boolean }) {
     mode,
     consume,
     publish,
+    unpublish,
     signOutUser,
     getIdToken,
     refreshQuota,
@@ -81,6 +83,7 @@ export function Builder({ quotaServer }: { quotaServer: boolean }) {
   const [streaming, setStreaming] = useState(false);
   const [activeFile, setActiveFile] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [unpublishing, setUnpublishing] = useState(false);
   const [published, setPublished] = useState<{ id: string; url: string } | null>(null);
   const [chatsOpen, setChatsOpen] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -378,6 +381,39 @@ export function Builder({ quotaServer }: { quotaServer: boolean }) {
       setPublishing(false);
     }
   }, [hasOutput, streaming, publishing, publish, chatId, entry, chats, saveChat, push, published, currentChat]);
+
+  const handleUnpublish = useCallback(async () => {
+    if (!published || unpublishing) return;
+    setUnpublishing(true);
+    try {
+      await unpublish(published.id);
+      setPublished(null);
+
+      // The chat keeps the dead id otherwise, and the next publish would revive it.
+      const existing = chats.find((chat) => chat.id === chatId);
+      if (existing) {
+        await saveChat({ ...existing, publishedId: null, updatedAt: Date.now() }).catch(
+          (error: unknown) => {
+            console.error("[openmi] could not clear the published id", error);
+          },
+        );
+      }
+
+      push({
+        tone: "success",
+        title: "Link removed",
+        description: "That URL no longer resolves for anyone.",
+      });
+    } catch (error) {
+      push({
+        tone: "error",
+        title: "Could not remove the link",
+        description: error instanceof Error ? error.message : "Please try again.",
+      });
+    } finally {
+      setUnpublishing(false);
+    }
+  }, [published, unpublishing, unpublish, chats, chatId, saveChat, push]);
 
   // The project lives in this conversation and the preview; a download is the
   // user's own copy, built entirely in the browser with no server round-trip.
@@ -721,6 +757,19 @@ export function Builder({ quotaServer }: { quotaServer: boolean }) {
                 >
                   <ExternalLinkIcon className="h-3.5 w-3.5" />
                 </a>
+                <button
+                  type="button"
+                  onClick={() => void handleUnpublish()}
+                  disabled={unpublishing}
+                  title="Delete this published link"
+                  className="grid h-6 w-6 place-items-center rounded-md text-white/45 transition-colors hover:bg-white/10 hover:text-[#F43E01] disabled:opacity-40"
+                >
+                  {unpublishing ? (
+                    <LoaderIcon className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <TrashIcon className="h-3.5 w-3.5" />
+                  )}
+                </button>
               </div>
             ) : null}
           </div>
