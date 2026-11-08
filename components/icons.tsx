@@ -163,6 +163,16 @@ export function PlusIcon(props: Props) {
   );
 }
 
+export function DownloadIcon(props: Props) {
+  return (
+    <Svg {...props}>
+      <path d="M12 3v12" />
+      <path d="m7 10 5 5 5-5" />
+      <path d="M4 17v2.5A1.5 1.5 0 0 0 5.5 21h13a1.5 1.5 0 0 0 1.5-1.5V17" />
+    </Svg>
+  );
+}
+
 export function LayersIcon(props: Props) {
   return (
     <Svg {...props}>

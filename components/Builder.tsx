@@ -8,12 +8,14 @@ import { PROMPT_EXAMPLES } from "@/lib/prompts";
 import { PENDING_PROMPT_KEY } from "@/lib/config";
 import { activeFilePath, bundleSize, parseFileBundle } from "@/lib/file-bundle";
 import { buildInlinePreview, formatBytesNumber } from "@/lib/preview-html";
+import { archiveName, buildZip } from "@/lib/zip";
 
 import { useAuth } from "./AuthProvider";
 import {
   ArrowRightIcon,
   ChevronDownIcon,
   CopyIcon,
+  DownloadIcon,
   ExternalLinkIcon,
   LoaderIcon,
   PlusIcon,
@@ -371,6 +373,34 @@ export function Builder({ quotaServer }: { quotaServer: boolean }) {
     }
   }, [hasOutput, streaming, publishing, publish, chatId, entry, chats, saveChat, push]);
 
+  // The project lives in this conversation and the preview; a download is the
+  // user's own copy, built entirely in the browser with no server round-trip.
+  const handleDownload = useCallback(() => {
+    if (!files.length) return;
+    try {
+      const archive = buildZip(files.map((file) => ({ path: file.path, content: file.content })));
+      const url = URL.createObjectURL(new Blob([archive], { type: "application/zip" }));
+      const anchor = document.createElement("a");
+      const title = currentChat?.title ?? chatTitle(messages.find((item) => item.role === "user")?.content ?? "Openmi project");
+
+      anchor.href = url;
+      anchor.download = archiveName(title);
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+
+      push({
+        tone: "success",
+        title: "Download started",
+        description: `${files.length} file${files.length === 1 ? "" : "s"} · ${formatBytesNumber(totalSize)}`,
+      });
+    } catch (error) {
+      console.error("[openmi] could not build the archive", error);
+      push({ tone: "error", title: "Could not create the archive", description: "Please try again." });
+    }
+  }, [files, currentChat, messages, totalSize, push]);
+
   const handleResendVerification = useCallback(async () => {
     try {
       await resendVerificationEmail();
@@ -475,6 +505,20 @@ export function Builder({ quotaServer }: { quotaServer: boolean }) {
         </div>
 
         <div className="flex items-center justify-end gap-1.5">
+          <button
+            type="button"
+            onClick={handleDownload}
+            disabled={!hasOutput || streaming}
+            title={hasOutput ? "Download this project as a .zip" : "Build something first"}
+            className={`flex h-8 items-center gap-1.5 rounded-full border px-3 text-[12px] font-medium transition-colors ${
+              !hasOutput || streaming
+                ? "cursor-not-allowed border-white/10 text-white/25"
+                : "border-white/15 text-white/80 hover:border-white/30 hover:bg-white/[0.06]"
+            }`}
+          >
+            <DownloadIcon className="h-3.5 w-3.5" />
+            Download
+          </button>
           <button
             type="button"
             onClick={() => void handlePublish()}
