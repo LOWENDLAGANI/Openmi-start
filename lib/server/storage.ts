@@ -73,7 +73,14 @@ export async function readFile(chatId: string, relativePath: string): Promise<Bu
       .file(`${previewPrefix(chatId)}/${relativePath}`)
       .download();
     return buffer;
-  } catch {
+  } catch (error) {
+    // A genuinely absent file and an unreachable bucket both land here, and the
+    // route can only answer "Not found" for either. Log the real reason so a
+    // misconfigured bucket does not look like a missing page.
+    const code = (error as { code?: number | string } | null)?.code;
+    if (code !== 404) {
+      console.error(`[openmi] could not read ${previewPrefix(chatId)}/${relativePath}`, error);
+    }
     return null;
   }
 }

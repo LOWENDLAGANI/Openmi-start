@@ -52,6 +52,22 @@ export function isAdminConfigured(): boolean {
   return readCredentials() !== null;
 }
 
+/**
+ * The bucket generated projects are written to and served from.
+ *
+ * FIREBASE_STORAGE_BUCKET wins; otherwise the bucket from the web config, which
+ * is what the project actually reports. Naming it explicitly matters: the Admin
+ * SDK otherwise assumes the legacy `<projectId>.appspot.com`, but every default
+ * bucket provisioned after September 2024 is `<projectId>.firebasestorage.app`,
+ * so the inherited guess points at a bucket that does not exist.
+ */
+function storageBucketName(): string | undefined {
+  const explicit =
+    process.env.FIREBASE_STORAGE_BUCKET?.trim() ||
+    process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?.trim();
+  return explicit || undefined;
+}
+
 let cached: App | null = null;
 
 function adminApp(): App {
@@ -71,6 +87,7 @@ function adminApp(): App {
           privateKey: credentials.privateKey,
         }),
         projectId: credentials.projectId,
+        ...(storageBucketName() ? { storageBucket: storageBucketName() } : {}),
       });
   return cached;
 }
@@ -87,8 +104,8 @@ export function adminStorage(): Storage {
   return getStorage(adminApp());
 }
 
-/** The project bucket, or FIREBASE_STORAGE_BUCKET when set explicitly. */
+/** The project bucket, resolved as described in `storageBucketName`. */
 export function adminBucket() {
-  const name = process.env.FIREBASE_STORAGE_BUCKET?.trim();
+  const name = storageBucketName();
   return name ? adminStorage().bucket(name) : adminStorage().bucket();
 }
