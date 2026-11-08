@@ -20,9 +20,21 @@ export type ResolvedProvider = {
   apiKey: string | null;
   baseUrl: string;
   model: string;
+  /** Output budget for one build, from this provider's own ceiling. */
+  maxOutputTokens: number;
   /** Provider-specific request fields merged into the chat completion body. */
   extraBody: Record<string, unknown>;
 };
+
+/**
+ * Output budget for one build. Each provider caps this itself, and a complete
+ * multi-file site needs the room: a truncated stylesheet is what a half-styled
+ * page looks like. AI_MAX_TOKENS overrides the ceiling for every provider.
+ */
+function outputBudget(providerDefault: number): number {
+  const configured = Number(process.env.AI_MAX_TOKENS?.trim());
+  return Number.isFinite(configured) && configured >= 1000 ? Math.min(configured, 64_000) : providerDefault;
+}
 
 const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
 const DEEPSEEK_MODEL = "deepseek-flash";
@@ -46,6 +58,7 @@ export function resolveAiProvider(): ResolvedProvider {
       apiKey: deepseekKey,
       baseUrl,
       model,
+      maxOutputTokens: outputBudget(8000),
       extraBody: { thinking: { type: thinking ? "enabled" : "disabled" } },
     };
   }
@@ -60,6 +73,7 @@ export function resolveAiProvider(): ResolvedProvider {
       apiKey: openaiKey,
       baseUrl,
       model,
+      maxOutputTokens: outputBudget(16_000),
       extraBody: {},
     };
   }
@@ -69,6 +83,7 @@ export function resolveAiProvider(): ResolvedProvider {
     apiKey: null,
     baseUrl: "",
     model: "",
+    maxOutputTokens: 8000,
     extraBody: {},
   };
 }

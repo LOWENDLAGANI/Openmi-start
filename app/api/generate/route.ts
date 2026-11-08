@@ -1,7 +1,7 @@
 import { resolveAiProvider } from "@/lib/ai-config";
 import { DAILY_GENERATION_LIMIT } from "@/lib/config";
 import { randomProjectId } from "@/lib/backend/types";
-import { sanitizePath } from "@/lib/file-bundle";
+import { activeFilePath, sanitizePath } from "@/lib/file-bundle";
 import { GENERATION_SYSTEM_PROMPT, USER_PREFIX } from "@/lib/prompts";
 import { adminAuth, isAdminConfigured } from "@/lib/server/admin";
 import { chargeGeneration, readRemaining } from "@/lib/server/quota";
@@ -21,15 +21,6 @@ const MAX_HISTORY = 8;
 /** Below this the model produced nothing usable, so nothing is charged. */
 const MIN_CHARGEABLE_CHARS = 20;
 
-/**
- * Output budget for one build. A complete multi-file site — page plus its CSS
- * and behaviour — runs long, and a truncated tail is what a half-styled page
- * looks like. Raise AI_MAX_TOKENS when the provider's own cap allows more.
- */
-const MAX_OUTPUT_TOKENS = (() => {
-  const configured = Number(process.env.AI_MAX_TOKENS?.trim());
-  return Number.isFinite(configured) && configured >= 1000 ? Math.min(configured, 64_000) : 8000;
-})();
 
 type RateEntry = { count: number; resetAt: number };
 const rateBuckets = new Map<string, RateEntry>();
@@ -123,6 +114,12 @@ function sseToTextStream(
       const settle = async () => {
         if (settled) return;
         settled = true;
+        // A file the model stopped writing mid-way is the usual reason a saved
+        // preview looks half-styled, so name it in the logs when it happens.
+        const truncated = activeFilePath(produced);
+        if (truncated) {
+          console.warn(`[openmi] the model stopped mid-file (${truncated}); that file is incomplete`);
+        }
         if (!onSuccess || produced.length < MIN_CHARGEABLE_CHARS) return;
         try {
           await onSuccess(produced);
@@ -322,7 +319,7 @@ export async function POST(request: Request) {
         model: provider.model,
         stream: true,
         temperature: 0.8,
-        max_tokens: MAX_OUTPUT_TOKENS,
+        max_tokens: provider.maxOutputTokens,
         messages: [
           { role: "system", content: GENERATION_SYSTEM_PROMPT },
           { role: "user", content: userMessage },
