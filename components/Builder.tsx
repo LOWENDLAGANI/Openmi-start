@@ -96,7 +96,10 @@ export function Builder({ quotaServer }: { quotaServer: boolean }) {
   const canSend = !streaming && quotaLoaded && !outOfCredits && input.trim().length >= 3;
   const hasOutput = files.length > 0;
   const totalSize = useMemo(() => bundleSize(files), [files]);
-  const remotePreview = quotaServer && hasOutput ? `/api/preview/${chatId}/` : null;
+  // Name the entry file explicitly. With a bare trailing slash Next redirects to
+  // the slash-less URL, and the document's base stops being a directory — every
+  // relative asset (styles.css) then 404s into an unstyled preview.
+  const remotePreview = quotaServer && hasOutput ? `/api/preview/${chatId}/${entry}` : null;
   const currentChat = chats.find((chat) => chat.id === chatId);
 
   useEffect(() => {
@@ -345,7 +348,10 @@ export function Builder({ quotaServer }: { quotaServer: boolean }) {
     if (!hasOutput || streaming || publishing) return;
     setPublishing(true);
     try {
-      const { id } = await publish({ chatId, entry });
+      // Re-publishing must not mint a second URL: reuse this chat's project so
+      // one build keeps exactly one public link.
+      const existingId = published?.id ?? currentChat?.publishedId ?? null;
+      const { id } = await publish({ chatId, entry, projectId: existingId ?? undefined });
       const url = `${window.location.origin}/p/${id}`;
       setPublished({ id, url });
 
@@ -371,7 +377,7 @@ export function Builder({ quotaServer }: { quotaServer: boolean }) {
     } finally {
       setPublishing(false);
     }
-  }, [hasOutput, streaming, publishing, publish, chatId, entry, chats, saveChat, push]);
+  }, [hasOutput, streaming, publishing, publish, chatId, entry, chats, saveChat, push, published, currentChat]);
 
   // The project lives in this conversation and the preview; a download is the
   // user's own copy, built entirely in the browser with no server round-trip.

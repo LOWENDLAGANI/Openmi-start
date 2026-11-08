@@ -76,8 +76,14 @@ export interface Backend {
   consumeQuota(user: SessionUser): Promise<ConsumeResult>;
   listChats(user: SessionUser): Promise<ChatRecord[]>;
   saveChat(user: SessionUser, chat: ChatRecord): Promise<void>;
-  /** Publishes a chat's project and returns its public id. */
-  publish(user: SessionUser, input: { chatId: string; entry: string }): Promise<PublishResult>;
+  /**
+   * Publishes a chat's project and returns its public id. Pass `projectId` to
+   * republish onto an existing link instead of creating a new one.
+   */
+  publish(
+    user: SessionUser,
+    input: { chatId: string; entry: string; projectId?: string },
+  ): Promise<PublishResult>;
 }
 
 /** UTC day key: quota windows roll over at midnight UTC. */

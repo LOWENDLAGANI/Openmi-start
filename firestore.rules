@@ -28,7 +28,8 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Published projects. Publicly readable, immutable once written.
+    // Published projects. Publicly readable. The owner may republish onto the
+    // same id so a shared link stays stable; nobody may delete one.
     match /projects/{projectId} {
       allow read: if true;
       allow create: if request.auth != null
@@ -38,7 +39,11 @@ service cloud.firestore {
           request.resource.data.chat_id is string
           || (request.resource.data.code is string && request.resource.data.code.size() < 200000)
         );
-      allow update, delete: if false;
+      allow update: if request.auth != null
+        && resource.data.user_id == request.auth.uid
+        && request.resource.data.user_id == request.auth.uid
+        && request.resource.data.id == projectId;
+      allow delete: if false;
     }
   }
 }

@@ -29,7 +29,7 @@ type AuthContextValue = {
   getIdToken: () => Promise<string | null>;
   /** Demo only: spends one browser-local credit after a successful run. */
   consume: () => Promise<boolean>;
-  publish: (input: { chatId: string; entry: string }) => Promise<PublishResult>;
+  publish: (input: { chatId: string; entry: string; projectId?: string }) => Promise<PublishResult>;
   saveChat: (chat: ChatRecord) => Promise<void>;
   refreshQuota: () => Promise<void>;
   refreshChats: () => Promise<void>;
@@ -135,7 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const publish = useCallback(
-    async (input: { chatId: string; entry: string }) => {
+    async (input: { chatId: string; entry: string; projectId?: string }) => {
       const current = userRef.current;
       if (!current) throw new Error("Sign in before publishing.");
       return backend.publish(current, input);

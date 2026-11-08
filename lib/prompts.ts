@@ -150,7 +150,8 @@ FILES
 ...complete file...
 <<<END FILE>>>
 - Always include index.html as a complete HTML document (entry page).
-- Default to 2-3 files: index.html, styles.css, and app.js only when there is real behaviour. Never exceed 5.
+- Default to a small MULTI-PAGE site: index.html plus the one or two pages this product actually needs (about, pricing, contact, gallery). Two to four pages, at most six files, all reachable from a shared nav and footer.
+- Build a single page only when the user explicitly asks for one, or when the request is inherently one screen (a dashboard, or a tool with panels).
 - Share one styles.css across every page. Use relative links (about.html, styles.css - never /about.html) so pages work when served from any prefix.
 - Return COMPLETE files every time, never diffs, snippets, ellipses or "unchanged".
 - Finish every file you start. If the budget runs short, write fewer sections rather than a truncated stylesheet: one unclosed rule breaks the whole page.

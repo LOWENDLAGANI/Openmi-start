@@ -242,15 +242,15 @@ export const firebaseBackend: Backend = {
     });
   },
 
-  async publish(user, { chatId, entry }) {
-    const id = randomProjectId(6);
+  async publish(user, { chatId, entry, projectId }) {
+    const id = projectId ?? randomProjectId(6);
     await setDoc(doc(db(), COLLECTIONS.projects, id), {
       id,
       user_id: user.uid,
       chat_id: chatId,
       entry,
       created_at: serverTimestamp(),
-    }).catch((error: unknown) => {
+    }, { merge: true }).catch((error: unknown) => {
       throw withRulesHint(error);
     });
     return { id };
