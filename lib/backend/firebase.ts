@@ -127,6 +127,26 @@ function toChatRecord(id: string, data: Record<string, unknown>): ChatRecord {
   };
 }
 
+/**
+ * Firestore answers every rules denial with "Missing or insufficient
+ * permissions", which reads like an account problem when it is a deployment
+ * one: the published ruleset does not allow this write.
+ */
+const RULES_HINT =
+  "Firestore rejected this write. Deploy the security rules (firebase deploy --only firestore:rules) — the published ruleset must let you write your own chats and projects.";
+
+function withRulesHint(error: unknown): Error {
+  const code =
+    typeof error === "object" && error !== null && "code" in error
+      ? String((error as { code?: unknown }).code)
+      : "";
+  const denied =
+    code === "permission-denied" ||
+    (error instanceof Error && /insufficient permissions/i.test(error.message));
+  if (denied) return new Error(RULES_HINT);
+  return error instanceof Error ? error : new Error("Firestore request failed.");
+}
+
 export const firebaseBackend: Backend = {
   mode: "firebase",
 
@@ -217,6 +237,8 @@ export const firebaseBackend: Backend = {
       created_at: chat.createdAt,
       updated_at: chat.updatedAt,
       updated_at_server: serverTimestamp(),
+    }).catch((error: unknown) => {
+      throw withRulesHint(error);
     });
   },
 
@@ -228,6 +250,8 @@ export const firebaseBackend: Backend = {
       chat_id: chatId,
       entry,
       created_at: serverTimestamp(),
+    }).catch((error: unknown) => {
+      throw withRulesHint(error);
     });
     return { id };
   },

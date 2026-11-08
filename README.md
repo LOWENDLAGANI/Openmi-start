@@ -74,8 +74,13 @@ continues unchanged. Only the returned image URLs are embedded in generated page
 5. **Firestore Database**: create a database and publish [`firestore.rules`](./firestore.rules):
 
    ```bash
+   firebase use --add            # once: select this project
    firebase deploy --only firestore:rules
    ```
+
+   [`firebase.json`](./firebase.json) points the deploy at that rules file. Without a
+   published ruleset the live project keeps its old rules and every client write fails with
+   *Missing or insufficient permissions* — builds don't appear and publishing is refused.
 
 6. **Storage**: create the default bucket. Generated projects are written to `previews/<chatId>/…`
    by the Admin SDK.
